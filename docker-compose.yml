@@ -1,0 +1,147 @@
+services:
+  # 1. Relational Database (PostgreSQL 16)
+  postgres:
+    image: postgres:16-alpine
+    container_name: ats_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-ats_db}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ats_network
+
+  # 2. Centralized Structured Logging (Seq)
+  seq:
+    image: datalust/seq:latest
+    container_name: ats_seq
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_ADMINPASSWORD: ${SEQ_ADMIN_PASSWORD:-Admin12345!}
+    ports:
+      - "5341:5341"
+      - "8080:80"
+    volumes:
+      - seq_data:/data
+    networks:
+      - ats_network
+
+  # 3. Backend API (.NET 10 Clean Architecture)
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: ats_backend
+    restart: unless-stopped
+    ports:
+      - "5027:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-ats_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
+      - Serilog__WriteTo__1__Args__serverUrl=http://seq:5341
+      - Storage__BasePath=/app/Storage
+      - Gemini__ApiKey=${Gemini__ApiKey}
+      - Gemini__Model=${Gemini__Model:-gemini-flash-lite-latest}
+      - Ingestion__ApiKey=${Ingestion__ApiKey:-ats_internal_dev_key_2026}
+      - Webhooks__Secret=${Webhooks__Secret:-ats_webhook_secret_2026}
+      - N8n__WebhookCvUrl=http://n8n:5678/webhook/cv-analysis
+      - N8n__WebhookDiscUrl=http://n8n:5678/webhook/disc-interpretation
+      - Authentication__Authority=http://keycloak:8080/realms/ats-realm
+      - Authentication__ValidIssuer=http://localhost:8085/realms/ats-realm
+      - Authentication__Audience=ats-backend
+    volumes:
+      - backend_storage:/app/Storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seq:
+        condition: service_started
+    networks:
+      - ats_network
+
+  # 4. Frontend Web Dashboard (React 19 + Vite + Nginx)
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: ats_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - ats_network
+
+  # 5. Workflow Automation Engine (n8n)
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: ats_n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=America/Santo_Domingo
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    networks:
+      - ats_network
+
+  # 6. Identity & Access Management (Keycloak 26)
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    container_name: ats_keycloak
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak_db
+      - KC_DB_USERNAME=${POSTGRES_USER:-postgres}
+      - KC_DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - KC_HTTP_PORT=8080
+      - KC_HOSTNAME_STRICT=false
+      - KC_HOSTNAME_STRICT_HTTPS=false
+      - KC_HTTP_ENABLED=true
+    ports:
+      - "8085:8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ./keycloak/themes:/opt/keycloak/themes:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ats_network
+
+networks:
+  ats_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  seq_data:
+  backend_storage:
+  n8n_data:

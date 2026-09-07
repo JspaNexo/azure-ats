@@ -1,0 +1,67 @@
+﻿# ==============================================================================
+# ATS TalentIQ - Git Ignore Policy
+# ==============================================================================
+
+# 1. Environment and Secrets (CRITICAL)
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.pfx
+*.cer
+secrets.json
+appsettings.*.local.json
+
+# 2. .NET Build Artifacts and User Cache
+[Bb]in/
+[Oo]bj/
+out/
+publish/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+.vs/
+TestResults/
+_ReSharper*/
+
+# 3. Node / Frontend
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+dist-ssr/
+*.local
+.npm
+.eslintcache
+.vite/
+
+# 4. Storage & Runtime Uploaded Files
+Storage/
+backend/Storage/
+/Storage/
+*.pdf
+!backend/tests/**/*.pdf
+
+# 5. Docker Volumes & Persistent Local State
+postgres_data/
+seq_data/
+n8n_data/
+.docker/
+
+# 6. IDEs & Operating System
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# 7. Logs & Diagnostics
+*.log
+logs/
+scratch/
