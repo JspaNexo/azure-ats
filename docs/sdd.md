@@ -9,6 +9,10 @@
 **Proveedor de IA:** Google Gemini (`gemini-flash-lite-latest` con cadena de resiliencia multi-modelo)  
 **Servidor de Identidad:** Keycloak 26 con RBAC y OIDC PKCE  
 
+> [!NOTE]
+> **Aviso de Alcance Tecnico - Prototipo / Prueba de Concepto (PoC)**
+> Las especificaciones de diseno, diagramas de secuencia, campos de datos y flujos de pantalla descritos en este documento conforman un prototipo funcional de referencia. **No pretenden replicar o imponer el proceso de seleccion y contratacion definitivo de una empresa en particular.** Gracias a los principios de Clean Architecture y la separacion en microservicios contenerizados, cualquier etapa (modelo de evaluacion, integraciones con ERPs/HRIS, catalogo de competencias o esquemas de base de datos) puede ser personalizada, extendida o reconfigurada segun los requerimientos especificos de la organizacion.
+
 ---
 
 ## 1. Propósito

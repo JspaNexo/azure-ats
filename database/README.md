@@ -2,6 +2,10 @@
 
 Documentacion del modelo relacional de datos, esquemas, restricciones de integridad referencial y scripts de migracion e inicializacion automatica de PostgreSQL para TalentIQ ATS.
 
+> [!NOTE]
+> **Aviso de Modelo de Datos - Prototipo**
+> El modelo entidad-relación y los datos de prueba provistos en estos scripts fueron disenados como prototipo demostrativo. Las tablas, columnas y tipos de datos pueden modificarse, normalizarse o extenderse (por ejemplo, para agregar etapas de entrevistas en panel, evaluaciones psicométricas adicionales o integraciones con nómina/HRIS) sin alterar la arquitectura central del sistema.
+
 ---
 
 ## 1. Scripts de Inicializacion Secuencial (`database/init/`)

@@ -4,6 +4,10 @@ Plataforma empresarial contenerizada para la gestion de vacantes, ingesta curric
 
 Diseñado bajo principios de Clean Architecture en .NET 10, autenticacion centralizada Keycloak 26 con tema personalizado corporativo, control de acceso basado en roles (RBAC), blindaje multicapa contra ataques de Prompt Injection y una interfaz web en React 19 totalmente responsiva y adaptativa para dispositivos moviles, tabletas y escritorio.
 
+> [!NOTE]
+> **Aviso de Alcance del Proyecto - Prototipo / Prueba de Concepto (PoC)**
+> Este software constituye un prototipo funcional y demostrativo. Los flujos de trabajo, pantallas, cuestionarios psicometricos y etapas de evaluacion aqui presentados no reflejan de manera estricta o vinculante el proceso de seleccion y reclutamiento real de ninguna empresa u organizacion. La solucion ha sido concebida con una arquitectura modular y parametrizable que facilita modificar, extender o redisenar cualquier componente (criterios de scoring, proveedores de IA, etapas de evaluacion, integraciones con ATS existentes o flujos de aprobacion) para ajustarse fielmente a las necesidades y normativas de cada organizacion.
+
 ---
 
 ## 1. Arquitectura del Sistema

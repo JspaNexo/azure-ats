@@ -2,6 +2,10 @@
 
 Modulo de servicios de backend para TalentIQ ATS construido sobre **.NET 10** en C# bajo principios de **Clean Architecture**, segregacion de comandos y consultas (**CQRS**) con MediatR, persistencia relacional con **Entity Framework Core** sobre PostgreSQL 16 y servicios avanzados de evaluacion con **Google Gemini AI**.
 
+> [!NOTE]
+> **Aviso de Prototipo Funcional (Backend)**
+> La logica de negocio, algoritmos de coincidencia (*match scoring*), validaciones de expediente y generacion de preguntas STAR implementados en esta API constituyen un prototipo demostrativo. No representan una politica de contratacion rigida ni definitiva. Su estructura desacoplada en capas (Dominio, Aplicacion, Infraestructura) permite incorporar facilmente nuevas reglas de seleccion, cambiar modelos de ponderacion o conectar con APIs externas de seleccion corporativa.
+
 ---
 
 ## 1. Estructura de Proyectos y Capas

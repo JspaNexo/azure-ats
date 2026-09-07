@@ -2,6 +2,10 @@
 
 Modulo de interfaz de usuario web para el sistema de seleccion de talento TalentIQ ATS. Construido con **React 19**, **TypeScript**, **Vite** y **Tailwind CSS**, diseñado para una navegacion fluida y adaptativa en dispositivos moviles, tabletas y computadoras de escritorio, integrando autenticacion **Keycloak 26 (IAM)** y comunicacion con la API REST en **ASP.NET Core 10**.
 
+> [!NOTE]
+> **Aviso de Prototipo Funcional (Frontend)**
+> Esta interfaz representa un prototipo de consola ejecutiva para validar la experiencia de usuario (UX) en la revision curricular y psicometrica. La disposicion de controles, modales de captura y formularios de evaluacion no corresponden de forma rigida a un proceso organizacional inmutable; sus componentes React modulares y estilos Tailwind estan preparados para adaptarse, personalizarse o reconfigurarse segun el manual de marca y las fases de contratacion de cada institucion.
+
 ---
 
 ## 1. Caracteristicas Principales

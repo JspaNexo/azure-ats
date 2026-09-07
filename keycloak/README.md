@@ -2,6 +2,10 @@
 
 Este directorio contiene los archivos de configuracion, exportacion de realm y temas visuales para el servidor de identidad **Keycloak 26.2** de TalentIQ ATS.
 
+> [!NOTE]
+> **Aviso de Prototipo (Seguridad e Identidad)**
+> Los roles (`ats_admin`, `ats_recruiter`), usuarios de demostración y políticas de sesión aquí provistos son parte de un prototipo para ilustrar el control de acceso basado en roles (RBAC). El sistema puede integrarse con directorios corporativos reales (Active Directory / LDAP / Microsoft Entra ID / Google Workspace) o adaptar su matriz de permisos y roles a la estructura organizativa de la empresa.
+
 ---
 
 ## 1. Estructura del Directorio

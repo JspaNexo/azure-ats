@@ -2,6 +2,10 @@
 
 Este directorio almacena recursos y directrices operativas para los servicios contenerizados del sistema TalentIQ ATS orquestados mediante **Docker Compose**.
 
+> [!NOTE]
+> **Aviso de Prototipo Funcional (Infraestructura)**
+> La topologia de contenedores en Docker Compose aqui expuesta esta disenada para entornos de desarrollo local, pruebas y validacion de concepto (PoC). No refleja una infraestructura definitiva de alta disponibilidad o produccion empresarial (como Kubernetes, clusters de base de datos administrados o balanceadores de carga en la nube), pero su diseno modular facilita su migracion y adaptacion a cualquier plataforma en la nube o esquema on-premise corporativo.
+
 ---
 
 ## 1. Servicios Gestionados

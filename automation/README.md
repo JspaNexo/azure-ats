@@ -2,6 +2,10 @@
 
 Este directorio contiene las definiciones declarativas de flujos de trabajo en formato JSON para el motor de orquestacion **n8n** y la arquitectura de comunicacion por webhooks seguros con el backend de TalentIQ ATS.
 
+> [!NOTE]
+> **Aviso de Prototipo Funcional (Automatizacion)**
+> Los flujos de trabajo en n8n incluidos en este directorio son ejemplos ilustrativos de orquestacion asincrona y procesamiento por lotes para una prueba de concepto. No limitan ni imponen un flujo operativo fijo; pueden modificarse, ampliarse o reemplazarse por otros orquestadores empresariales (tales como Apache Airflow, Temporal, Azure Logic Apps o AWS Step Functions) segun los requerimientos y herramientas de la organizacion.
+
 ---
 
 ## 1. Estructura de Flujos

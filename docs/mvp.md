@@ -1,5 +1,24 @@
 # MVP: Sistema de Evaluacion y Pre-Entrevista ATS TalentIQ
 
+> [!NOTE]
+> **Naturaleza del Documento y Alcance de Prototipo (MVP / PoC)**
+> Este documento especifica un Producto Minimo Viable (MVP) concebido como prototipo funcional de exploracion arquitectonica. La secuencia de pasos, cuestionarios y criterios de evaluacion aqui contemplados no sustituyen ni reflejan de forma definitiva los procesos de seleccion reales de una entidad contratante. El diseno del sistema es deliberadamente desacoplado y flexible, lo que permite adaptar, reconfigurar o sustituir etapas segun los flujos de trabajo corporativos vigentes.
+
+## 1. Descripcion General
+
+El MVP tiene como objetivo automatizar la gestion de vacantes y la evaluacion tecnica y conductual de candidatos para generar de forma asistida un informe preentrevista ejecutivo de dos paginas, articulando:
+
+- El curriculum vitae (CV) en formato PDF cargado directamente por el evaluador o postulante.
+- El catalogo formal de vacantes y requerimientos tecnicos del puesto (`Job Positions`).
+- El resultado oficial de la evaluacion conductual basada en metodologia DISC con clasificacion de estilo primario.
+- Google Gemini AI como motor de inteligencia artificial (modelo `gemini-flash-lite-latest` con soporte multi-modelo de contingencia) con blindaje contra inyeccion de prompts.
+- Keycloak 26 como servidor de identidad y autorizacion basado en roles (RBAC) con tema responsivo personalizado.
+- PostgreSQL 16 como base de datos relacional y transaccional con integridad referencial.
+- ASP.NET Core 10 como backend bajo Clean Architecture y CQRS.
+- React 19 y Tailwind CSS como interfaz de usuario ejecutiva adaptada a moviles, tabletas y escritorio.
+
+El informe y la guia de preguntas situacionales STAR estan a disposicion del evaluador antes de la entrevista tecnica.
+
 ---
 
 ## 2. Objetivo del MVP
