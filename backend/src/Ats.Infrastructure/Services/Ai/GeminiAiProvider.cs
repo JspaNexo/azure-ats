@@ -14,7 +14,7 @@ public class GeminiOptions
 {
     public const string SectionName = "Gemini";
     public string ApiKey { get; set; } = string.Empty;
-    public string Model { get; set; } = "gemini-2.5-flash";
+    public string Model { get; set; } = "gemini-flash-lite-latest";
     public string BaseUrl { get; set; } = "https://generativelanguage.googleapis.com/v1beta";
 }
 
@@ -262,8 +262,23 @@ public class GeminiAiProvider : ICvAnalyzer, IDiscInterpreter, IInterviewQuestio
             return Result.Success(GenerateMockData<T>());
         }
 
-        string currentModel = _options.Model;
-        try {
+        var candidateModels = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_options.Model))
+        {
+            candidateModels.Add(_options.Model);
+        }
+        foreach (var fallback in new[] { "gemini-flash-lite-latest", "gemini-3.1-flash-lite", "gemini-3.5-flash-lite", "gemini-3.6-flash" })
+        {
+            if (!candidateModels.Contains(fallback, StringComparer.OrdinalIgnoreCase))
+            {
+                candidateModels.Add(fallback);
+            }
+        }
+
+        string lastErrorMessage = string.Empty;
+
+        foreach (var currentModel in candidateModels)
+        {
             try
             {
                 string endpoint = $"{_options.BaseUrl}/models/{currentModel}:generateContent";
@@ -331,9 +346,11 @@ public class GeminiAiProvider : ICvAnalyzer, IDiscInterpreter, IInterviewQuestio
                         currentModel,
                         response.StatusCode,
                         errorBody);
-                return Result.Failure<T>(Error.Failure("Gemini.ApiError", $"Error en llamada a Gemini: {response.StatusCode}"));
-            }
-            var jsonDocument = await response.Content.ReadFromJsonAsync<JsonDocument>(cancellationToken);
+                    lastErrorMessage = $"Status {response.StatusCode}: {errorBody}";
+                    continue;
+                }
+
+                var jsonDocument = await response.Content.ReadFromJsonAsync<JsonDocument>(cancellationToken);
                 if (jsonDocument is null)
                 {
                     continue;
