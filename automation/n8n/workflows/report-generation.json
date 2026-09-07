@@ -1,0 +1,43 @@
+{
+  "name": "ATS - Interview Report Generation Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-report",
+        "options": {}
+      },
+      "id": "1",
+      "name": "Webhook Trigger Report",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "=http://host.docker.internal:5000/api/v1/webhooks/generate-report?candidateId={{ $json.body.candidateId }}&eventId={{ $json.body.eventId }}&correlationId={{ $json.body.correlationId }}",
+        "method": "POST",
+        "options": {}
+      },
+      "id": "2",
+      "name": "Call API Generate Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger Report": {
+      "main": [
+        [
+          {
+            "node": "Call API Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
+
