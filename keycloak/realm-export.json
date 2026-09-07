@@ -1,0 +1,111 @@
+{
+  "id": "ats-realm",
+  "realm": "ats-realm",
+  "displayName": "TalentIQ Enterprise ATS",
+  "enabled": true,
+  "sslRequired": "none",
+  "loginTheme": "talentiq",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "resetPasswordAllowed": false,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "roles": {
+    "realm": [
+      {
+        "name": "ats_admin",
+        "description": "Administrador General del Sistema ATS y Asignacion de Candidatos"
+      },
+      {
+        "name": "ats_recruiter",
+        "description": "Reclutador / Evaluador Tecnico de Candidatos"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "ats-frontend",
+      "name": "TalentIQ Frontend SPA",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "rootUrl": "http://localhost:5173",
+      "baseUrl": "http://localhost:5173/",
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://localhost:5173/"
+      ],
+      "webOrigins": [
+        "*"
+      ],
+      "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:5173/"
+      }
+    },
+    {
+      "clientId": "ats-backend",
+      "name": "TalentIQ Backend Resource Server",
+      "enabled": true,
+      "bearerOnly": true,
+      "protocol": "openid-connect"
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@ats.com",
+      "firstName": "Administrador",
+      "lastName": "Comite",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Admin123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ats_admin"
+      ]
+    },
+    {
+      "username": "carlos.mendoza",
+      "enabled": true,
+      "email": "carlos.mendoza@empresa.com",
+      "firstName": "Carlos",
+      "lastName": "Mendoza",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Recruiter123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ats_recruiter"
+      ]
+    },
+    {
+      "username": "laura.sanchez",
+      "enabled": true,
+      "email": "laura.sanchez@empresa.com",
+      "firstName": "Laura",
+      "lastName": "Sanchez",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Recruiter123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ats_recruiter"
+      ]
+    }
+  ]
+}
