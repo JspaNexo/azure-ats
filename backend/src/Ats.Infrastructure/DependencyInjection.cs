@@ -7,6 +7,7 @@ using Ats.Infrastructure.Persistence.Repositories;
 using Ats.Infrastructure.Services.Ai;
 using Ats.Infrastructure.Services.Pdf;
 using Ats.Infrastructure.Services.Reporting;
+using Ats.Infrastructure.Services.Skills;
 using Ats.Infrastructure.Services.Storage;
 
 namespace Ats.Infrastructure;
@@ -31,10 +32,11 @@ public static class DependencyInjection
         services.AddScoped<IProcessingJobRepository, ProcessingJobRepository>();
         services.AddScoped<IJobPositionRepository, JobPositionRepository>();
 
-        // 3. Document Extractor & Storage
+        // 3. Document Extractor, Storage & Skill Normalizer
         services.AddSingleton<IPdfTextExtractor, PdfPigTextExtractor>();
         services.AddSingleton<IDocumentStorageService, LocalStorageService>();
         services.AddSingleton<IReportDocumentRenderer, ReportDocumentRenderer>();
+        services.AddSingleton<ISkillNormalizationService, SkillNormalizationService>();
 
         // 4. Gemini AI Provider with Resilience
         services.Configure<GeminiOptions>(configuration.GetSection(GeminiOptions.SectionName));
