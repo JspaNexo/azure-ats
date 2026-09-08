@@ -4,6 +4,7 @@ using Ats.Application.DTOs;
 using Ats.Domain.Common;
 using Ats.Domain.Entities;
 using Ats.Domain.ValueObjects;
+using Ats.Application.Features.Scoring;
 
 namespace Ats.Application.Features.Candidates;
 
@@ -84,17 +85,23 @@ public class GetCandidateByIdQueryHandler
     private readonly ICvAnalysisRepository _cvAnalysisRepository;
     private readonly IDiscRepository _discRepository;
     private readonly IInterviewReportRepository _reportRepository;
+    private readonly IJobPositionRepository? _jobPositionRepository;
+    private readonly JobFitScoringService? _jobFitScoringService;
 
     public GetCandidateByIdQueryHandler(
         ICandidateRepository candidateRepository,
         ICvAnalysisRepository cvAnalysisRepository,
         IDiscRepository discRepository,
-        IInterviewReportRepository reportRepository)
+        IInterviewReportRepository reportRepository,
+        IJobPositionRepository? jobPositionRepository = null,
+        JobFitScoringService? jobFitScoringService = null)
     {
         _candidateRepository = candidateRepository;
         _cvAnalysisRepository = cvAnalysisRepository;
         _discRepository = discRepository;
         _reportRepository = reportRepository;
+        _jobPositionRepository = jobPositionRepository;
+        _jobFitScoringService = jobFitScoringService;
     }
 
     public async Task<Result<CandidateDto>> HandleAsync(GetCandidateByIdQuery query, CancellationToken cancellationToken = default)
@@ -134,7 +141,20 @@ public class GetCandidateByIdQueryHandler
         string seniority = cvDto?.EstimatedSeniority ?? "Senior";
         int expYears = (int)Math.Round(cvDto?.TotalExperienceYears ?? 5.0);
         string primaryStyle = discResult?.Scores.PrimaryStyle ?? discDto?.PrimaryStyle ?? "D/C";
-        int matchScore = cvDto != null ? Math.Min(97, Math.Max(75, 76 + (expYears * 2) + (cvDto.Skills?.Count ?? 0))) : 88;
+
+        // Calculate dynamic Job Fit Score
+        JobFitResult? jobFit = null;
+        if (cvDto != null && _jobFitScoringService != null)
+        {
+            JobPosition? position = null;
+            if (candidate.JobPositionId.HasValue && _jobPositionRepository != null)
+            {
+                position = await _jobPositionRepository.GetByIdAsync(candidate.JobPositionId.Value, cancellationToken);
+            }
+            jobFit = _jobFitScoringService.CalculateFit(cvDto, position);
+        }
+
+        int matchScore = jobFit?.OverallScore ?? (cvDto != null ? Math.Min(97, Math.Max(75, 76 + (expYears * 2) + (cvDto.Skills?.Count ?? 0))) : 88);
         string status = report != null && report.Status == Domain.Enums.ReportStatus.Generated ? "ReportReady" :
                         discInterp != null && discInterp.Status == Domain.Enums.ProcessingStatus.Processed ? "DiscEvaluated" :
                         cvAnalysis != null && cvAnalysis.Status == Domain.Enums.ProcessingStatus.Processed ? "CvAnalyzed" : "Registered";
@@ -162,7 +182,8 @@ public class GetCandidateByIdQueryHandler
             JobPositionId: candidate.JobPositionId,
             CvAnalysis: cvDto,
             DiscInterpretation: discDto,
-            Report: reportDto));
+            Report: reportDto,
+            JobFitDetail: jobFit));
     }
 }
 
@@ -174,17 +195,23 @@ public class GetCandidatesQueryHandler
     private readonly ICvAnalysisRepository _cvAnalysisRepository;
     private readonly IDiscRepository _discRepository;
     private readonly IInterviewReportRepository _reportRepository;
+    private readonly IJobPositionRepository? _jobPositionRepository;
+    private readonly JobFitScoringService? _jobFitScoringService;
 
     public GetCandidatesQueryHandler(
         ICandidateRepository candidateRepository,
         ICvAnalysisRepository cvAnalysisRepository,
         IDiscRepository discRepository,
-        IInterviewReportRepository reportRepository)
+        IInterviewReportRepository reportRepository,
+        IJobPositionRepository? jobPositionRepository = null,
+        JobFitScoringService? jobFitScoringService = null)
     {
         _candidateRepository = candidateRepository;
         _cvAnalysisRepository = cvAnalysisRepository;
         _discRepository = discRepository;
         _reportRepository = reportRepository;
+        _jobPositionRepository = jobPositionRepository;
+        _jobFitScoringService = jobFitScoringService;
     }
 
     public async Task<Result<IReadOnlyList<CandidateDto>>> HandleAsync(GetCandidatesQuery query, CancellationToken cancellationToken = default)
@@ -229,7 +256,20 @@ public class GetCandidatesQueryHandler
             string seniority = cvDto?.EstimatedSeniority ?? "Senior";
             int expYears = (int)Math.Round(cvDto?.TotalExperienceYears ?? 5.0);
             string primaryStyle = discResult?.Scores.PrimaryStyle ?? discDto?.PrimaryStyle ?? "D/C";
-            int matchScore = cvDto != null ? Math.Min(97, Math.Max(75, 76 + (expYears * 2) + (cvDto.Skills?.Count ?? 0))) : 88;
+
+            // Calculate dynamic Job Fit Score
+            JobFitResult? jobFit = null;
+            if (cvDto != null && _jobFitScoringService != null)
+            {
+                JobPosition? position = null;
+                if (c.JobPositionId.HasValue && _jobPositionRepository != null)
+                {
+                    position = await _jobPositionRepository.GetByIdAsync(c.JobPositionId.Value, cancellationToken);
+                }
+                jobFit = _jobFitScoringService.CalculateFit(cvDto, position);
+            }
+
+            int matchScore = jobFit?.OverallScore ?? (cvDto != null ? Math.Min(97, Math.Max(75, 76 + (expYears * 2) + (cvDto.Skills?.Count ?? 0))) : 88);
             string status = report != null && report.Status == Domain.Enums.ReportStatus.Generated ? "ReportReady" :
                             discInterp != null && discInterp.Status == Domain.Enums.ProcessingStatus.Processed ? "DiscEvaluated" :
                             cvAnalysis != null && cvAnalysis.Status == Domain.Enums.ProcessingStatus.Processed ? "CvAnalyzed" : "Registered";
@@ -257,7 +297,8 @@ public class GetCandidatesQueryHandler
                 JobPositionId: c.JobPositionId,
                 CvAnalysis: cvDto,
                 DiscInterpretation: discDto,
-                Report: reportDto));
+                Report: reportDto,
+                JobFitDetail: jobFit));
         }
 
         return Result.Success<IReadOnlyList<CandidateDto>>(dtos);

@@ -25,7 +25,8 @@ public record CandidateDto(
     Guid? JobPositionId = null,
     CvAnalysisDto? CvAnalysis = null,
     DiscInterpretationDto? DiscInterpretation = null,
-    InterviewReportDto? Report = null);
+    InterviewReportDto? Report = null,
+    JobFitResult? JobFitDetail = null);
 
 public record CvAnalysisDto(
     [property: JsonPropertyName("professionalSummary")] string ProfessionalSummary = "",
