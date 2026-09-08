@@ -51,7 +51,7 @@ ats/
 ├── automation/
 │   ├── n8n/workflows/                  # Definicion de flujos declarativos n8n para procesamiento asincrono
 │   └── README.md                       # Documentacion de automatizacion y webhooks
-├── docs/                               # Documentos de diseno de software (sdd.md, mvp.md)
+├── docs/                               # Documentacion tecnica integral (DOCUMENTACION_TECNICA.md, sdd.md, mvp.md)
 ├── infra/                              # Configuracion de infraestructura y despliegue
 ├── docker-compose.yml                  # Orquestacion integral de servicios
 └── README.md                           # Documentacion general del sistema
