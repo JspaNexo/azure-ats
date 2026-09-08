@@ -243,11 +243,11 @@ public class GetCandidatesQueryHandler
             jobPositions = await _jobPositionRepository.GetByIdsAsync(jobIds, cancellationToken);
         }
 
-        var cvAnalysesDict = cvAnalyses.ToDictionary(a => a.CandidateId);
-        var discInterpsDict = discInterps.ToDictionary(i => i.CandidateId);
-        var discResultsDict = discResults.ToDictionary(r => r.CandidateId);
-        var reportsDict = reports.ToDictionary(r => r.CandidateId);
-        var jobPositionsDict = jobPositions.ToDictionary(j => j.Id);
+        var cvAnalysesDict = cvAnalyses.DistinctBy(a => a.CandidateId).ToDictionary(a => a.CandidateId);
+        var discInterpsDict = discInterps.DistinctBy(i => i.CandidateId).ToDictionary(i => i.CandidateId);
+        var discResultsDict = discResults.DistinctBy(r => r.CandidateId).ToDictionary(r => r.CandidateId);
+        var reportsDict = reports.DistinctBy(r => r.CandidateId).ToDictionary(r => r.CandidateId);
+        var jobPositionsDict = jobPositions.DistinctBy(j => j.Id).ToDictionary(j => j.Id);
 
         var dtos = new List<CandidateDto>();
 
