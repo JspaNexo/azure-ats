@@ -58,7 +58,13 @@ frontend/
 │   │   ├── StatsCards.tsx                 # Cuadricula fluida de metricas (1, 2 o 4 columnas)
 │   │   ├── QuickStartGuide.tsx            # Guia rapida para evaluadores con colapso responsivo
 │   │   ├── EvaluatorCandidateDashboard.tsx# Buscador, filtros por puesto/estado y tarjetas de candidatos
-│   │   ├── EvaluatorReviewModal.tsx       # Expediente integral del candidato de 5 pestañas
+│   │   ├── EvaluatorReviewModal.tsx       # Contenedor modular del expediente integral
+│   │   ├── evaluator/                     # Pestanas desacopladas del expediente:
+│   │   │   ├── CvAnalysisTab.tsx          # Resumen profesional, experiencia, formacion y skills
+│   │   │   ├── DiscProfileTab.tsx         # Radar SVG y descriptores conductuales
+│   │   │   ├── InterviewGuideTab.tsx      # Guia de indagacion situacional STAR
+│   │   │   ├── DecisionTab.tsx            # Formulario de dictamen (Aprobado, En Reserva, Descartado)
+│   │   │   └── PdfReportTab.tsx           # Visor y descarga del informe ejecutivo PDF
 │   │   ├── UploadCandidateModal.tsx       # Carga directa de CV, sliders DISC y evaluacion IA en vivo
 │   │   ├── CreateJobPositionModal.tsx     # Formulario de alta de vacantes formales
 │   │   ├── AssignRecruiterModal.tsx       # Modal de delegacion de candidatos a evaluadores
@@ -66,12 +72,13 @@ frontend/
 │   ├── context/
 │   │   └── AuthContext.tsx                # Contexto de sesion Keycloak (PKCE, tokens y roles)
 │   ├── services/
-│   │   ├── api.ts                         # Cliente HTTP tipado con Axios e inyeccion de token Bearer
+│   │   ├── api.ts                         # Cliente HTTP tipado desacoplado via VITE_API_BASE_URL
 │   │   └── keycloak.ts                    # Configuracion del cliente OIDC Keycloak JS
 │   ├── types/
 │   │   └── index.ts                       # Modelos TypeScript (Candidate, JobPosition, etc.)
 │   ├── index.css                          # Configuracion de estilos Tailwind CSS
 │   └── main.tsx                           # Punto de entrada de la aplicacion React
+├── .env.example                           # Variables de entorno frontend (VITE_API_BASE_URL, etc.)
 ├── Dockerfile                             # Multi-stage build con Node.js 22 Alpine y Nginx Alpine
 ├── nginx.conf                             # Configuracion Nginx con proxy inverso hacia backend
 ├── package.json                           # Dependencias y comandos npm
@@ -80,9 +87,15 @@ frontend/
 
 ---
 
-## 3. Integracion con Keycloak IAM
+## 3. Integracion con Keycloak IAM y Configuracion de Entorno
 
 El frontend utiliza el patron de flujo PKCE de OpenID Connect a traves de la libreria oficial `keycloak-js`:
+
+- **Variables de Entorno (.env):**
+  - `VITE_API_BASE_URL`: URL base de la API backend (por defecto `/api/v1` relativo para Nginx o `http://localhost:5027/api/v1` en desarrollo directo).
+  - `VITE_KEYCLOAK_URL`: URL del servidor de identidad (por defecto `http://localhost:8085`).
+  - `VITE_KEYCLOAK_REALM`: Realm de autenticacion (`ats-realm`).
+  - `VITE_KEYCLOAK_CLIENT_ID`: Identificador de cliente OIDC (`ats-frontend`).
 
 - **URL de Identidad:** `http://localhost:8085`
 - **Realm:** `ats-realm`

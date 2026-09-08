@@ -69,6 +69,11 @@ El resultado consolidado del proceso es el **Expediente e Informe Preentrevista 
 9. **Delegacion de Candidatos:** Asignacion individual de expedientes de administradores hacia evaluadores responsables.
 10. **Seguridad Defensiva contra Prompt Injection:** Cuatro capas de defensa (`CvSecuritySanitizer`, `systemInstruction`, Grounding Check y Human-in-the-Loop).
 11. **Hardening de Seguridad Backend:** Prevencion de Path Traversal en almacenamiento de archivos, validacion HMAC timing-safe en webhooks y middleware global de excepciones RFC 7807.
+12. **Desacoplamiento y Modularidad Arquitectonica:** Abstraccion `IAiProvider` con conmutacion automatica a `MockAiProvider` ante ausencia de credenciales; abstraccion `IStorageService` con soporte local y S3; capa de cache en memoria `ICacheService`.
+13. **Procesamiento en Segundo Plano (Background Channels):** Cola desacoplada `IBackgroundJobQueue` y `QueuedHostedService` para absorcion de cargas asincronas de evaluacion curricular.
+14. **Migraciones Formales EF Core:** Modelo declarativo en C# con ejecucion automatica `db.Database.Migrate()` en el arranque.
+15. **Suite Completa de Pruebas Automatizadas:** 69 pruebas integradas en `Ats.slnx` cubriendo invariantes de dominio, handlers de aplicacion, reglas arquitectonicas y casos de seguridad.
+16. **Modularizacion Frontend:** Subcomponentes dedicados de expediente bajo `src/components/evaluator/` y configuracion desacoplada via `VITE_API_BASE_URL`.
 
 ### 5.2 Funcionalidades para Siguientes Fases (Hoja de Ruta)
 1. Notificaciones asincronas en tiempo real por WebSockets (SignalR) ante nuevas asignaciones.

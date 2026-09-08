@@ -2,11 +2,11 @@
 
 ## Sistema de evaluacion y seleccion de talento basado en CV y DISC (TalentIQ ATS)
 
-**Versión:** 2.5  
+**Versión:** 2.6  
 **Estado:** Aprobado e Implementado  
-**Fecha:** 7 de septiembre de 2026  
+**Fecha:** 8 de septiembre de 2026  
 **Tipo de solución:** Prototipo Funcional y Arquitectonico / MVP Demostrativo  
-**Proveedor de IA:** Google Gemini (`gemini-flash-lite-latest` con cadena de resiliencia multi-modelo)  
+**Proveedor de IA:** Google Gemini (`gemini-flash-lite-latest` con cadena de resiliencia multi-modelo y `MockAiProvider` de respaldo)  
 **Servidor de Identidad:** Keycloak 26 con RBAC y OIDC PKCE  
 
 > [!NOTE]
@@ -75,7 +75,13 @@ Cuando se crea una vacante y se carga el CV junto a los puntajes DISC, el sistem
 - Servidor de Identidad Keycloak 26.2 con roles corporativos (`ats_admin`, `ats_recruiter`), flujo PKCE y tema visual responsivo `talentiq`.
 - Blindaje multicapa contra Prompt Injection (`CvSecuritySanitizer`, `systemInstruction`, delimitadores XML).
 - Mitigaciones de seguridad en backend: Path Traversal, validación HMAC timing-safe y ProblemDetails RFC 7807.
-- Interfaz web responsiva mobile-first en React 19 y Tailwind CSS adaptada a smartphones, tabletas y escritorio.
+- Interfaz web responsiva mobile-first en React 19 y Tailwind CSS adaptada a smartphones, tabletas y escritorio, con componentes modulares en `src/components/evaluator/`.
+- Motor de IA desacoplado bajo `IAiProvider` con conmutacion automatica a `MockAiProvider` en entornos locales sin clave API configurada.
+- Cola asincrona en segundo plano `IBackgroundJobQueue` (con canales `System.Threading.Channels`) y soporte para ingesta asincrona (`Async=true`) con respuesta `202 Accepted`.
+- Abstraccion de almacenamiento `IStorageService` con proveedores desacoplados Local (`LocalStorageService`) y S3 (`S3StorageService`).
+- Capa de cache en memoria `ICacheService` (`MemoryCacheService`) para optimizacion de consultas recurrentes.
+- Migraciones formales de EF Core con ejecucion automatica `db.Database.Migrate()` en el arranque.
+- Suite unificada de 69 pruebas automatizadas (`Ats.slnx`) integrando pruebas unitarias de dominio, aplicacion, arquitectura limpia y casos de seguridad.
 
 ### 4.2 Fuera del alcance (Fases Futuras)
 - Matching semántico avanzado con `pgvector` y modelos de embeddings locales.

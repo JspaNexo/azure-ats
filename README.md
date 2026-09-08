@@ -16,22 +16,29 @@ El sistema implementa una arquitectura desacoplada en microservicios conteneriza
 
 ```text
 ats/
+├── Ats.slnx                            # Solucion unificada .NET 10 (Backend + Suites de Pruebas)
 ├── backend/
 │   ├── src/
 │   │   ├── Ats.Domain/                 # Entidades de dominio (Candidate, JobPosition, etc.), Enums, ValueObjects y Eventos
-│   │   ├── Ats.Application/            # Casos de uso CQRS (Features: Candidates, JobPositions, Ingestion), DTOs e Interfaces
-│   │   ├── Ats.Infrastructure/         # EF Core, PostgreSQL, Gemini AI, Seguridad anti-inyeccion, PDF, Storage y Webhooks
-│   │   └── Ats.Api/                    # Controladores REST, Middleware de autenticacion JWT/Keycloak, GlobalExceptionHandler y Swagger
+│   │   ├── Ats.Application/            # Casos de uso CQRS (Candidates, JobPositions, Ingestion, Reports), DTOs e Interfaces
+│   │   ├── Ats.Infrastructure/         # EF Core, Migraciones, Gemini AI, MockAiProvider, Storage (Local/S3), Caching y Jobs
+│   │   └── Ats.Api/                    # Controladores REST, Autenticacion JWT/Keycloak, GlobalExceptionHandler y Swagger
 │   ├── tests/
-│   │   └── Ats.Tests/                  # Pruebas unitarias de sanitizacion, seguridad y casos de uso (xUnit)
+│   │   └── Ats.Tests/                  # Pruebas unitarias de seguridad, sanitizacion, scoring de calce y habilidades
 │   ├── Dockerfile                      # Multi-stage Docker build (.NET 10 SDK + ASP.NET Core Runtime)
 │   └── README.md                       # Documentacion tecnica de la capa backend
+├── tests/
+│   ├── Ats.Domain.UnitTests/           # Pruebas unitarias del modelo de dominio y Value Objects
+│   ├── Ats.Application.UnitTests/      # Pruebas unitarias de handlers CQRS y logica de aplicacion
+│   └── Ats.ArchitectureTests/          # Pruebas de cumplimiento de arquitectura limpia (dependencias entre capas)
 ├── frontend/
 │   ├── src/
-│   │   ├── components/                 # Componentes ejecutivos y modales adaptativos responsivos
+│   │   ├── components/                 # Componentes ejecutivos (dashboard, stats, modales)
+│   │   │   └── evaluator/              # Pestanas modulares del expediente (CvAnalysis, DISC, STAR, Dictamen, PDF)
 │   │   ├── context/                    # Estado de sesion Keycloak (AuthContext, proteccion de rutas y tokens)
-│   │   ├── services/                   # Clientes de comunicacion API REST con inyeccion de tokens Bearer
+│   │   ├── services/                   # Clientes de comunicacion API REST (api.ts desacoplado via VITE_API_BASE_URL)
 │   │   └── types/                      # Contratos e interfaces TypeScript
+│   ├── .env.example                    # Plantilla de variables de entorno frontend
 │   ├── Dockerfile                      # Multi-stage build (Node.js 22 + Nginx Alpine)
 │   ├── nginx.conf                      # Enrutamiento SPA y Reverse Proxy seguro (/api, /health, /swagger)
 │   └── README.md                       # Documentacion tecnica de la capa frontend
@@ -39,7 +46,8 @@ ats/
 │   ├── realm-export.json               # Definicion del realm ats-realm, clientes, roles y usuarios
 │   └── themes/talentiq/                # Tema visual corporativo personalizado y responsivo para login
 ├── database/
-│   └── init/                           # Scripts SQL de migracion (01-schema al 06-job-positions)
+│   ├── init/                           # Scripts SQL de migracion inicial (00 al 06-job-positions)
+│   └── README.md                       # Documentacion de persistencia relacional
 ├── automation/
 │   ├── n8n/workflows/                  # Definicion de flujos declarativos n8n para procesamiento asincrono
 │   └── README.md                       # Documentacion de automatizacion y webhooks
@@ -53,13 +61,16 @@ ats/
 
 ## 2. Pila Tecnologica
 
-- **Backend:** .NET 10 (C#) bajo Clean Architecture, CQRS y principios SOLID.
-- **Base de Datos:** PostgreSQL 16 Alpine con tipos de datos relacionales, llaves foraneas indexadas y campos JSONB.
+- **Backend:** .NET 10 (C#) bajo Clean Architecture, patron CQRS, FluentValidation y principios SOLID.
+- **Base de Datos:** PostgreSQL 16 Alpine con tipos relacionales, llaves foraneas indexadas, campos JSONB y migraciones automaticas de EF Core (`db.Database.Migrate()`).
 - **Autenticacion & Identidad:** Keycloak 26 (OpenID Connect / OAuth 2.0 con PKCE, validacion JWKS y tema responsivo TalentIQ).
-- **Inteligencia Artificial:** Google Gemini AI (modelo `gemini-flash-lite-latest` con cadena de resiliencia y respaldo multi-modelo a `gemini-3.1-flash-lite` y `gemini-3.5-flash-lite`), estructuracion JSON estricta, systemInstruction nativo y defensas anti-prompt injection.
+- **Inteligencia Artificial:** Google Gemini AI (modelo `gemini-flash-lite-latest` con cadena de resiliencia y respaldo multi-modelo a `gemini-3.1-flash-lite` y `gemini-3.5-flash-lite`), estructuracion JSON estricta, systemInstruction nativo y defensas anti-prompt injection. Proveedor `MockAiProvider` automatico en entornos locales sin API Key.
+- **Procesamiento Asincrono y Jobs:** Cola en segundo plano desacoplada `IBackgroundJobQueue` implementada con `System.Threading.Channels` y `QueuedHostedService`.
+- **Almacenamiento Desacoplado:** Abstraccion `IStorageService` con implementaciones dinamicas para almacenamiento local (`LocalStorageService`) y nube S3 (`S3StorageService`).
+- **Caché:** Abstraccion `ICacheService` con implementacion en memoria `MemoryCacheService` para optimizacion de consultas recurrentes.
 - **Frontend:** React 19, TypeScript, Tailwind CSS, Vite, Lucide Icons y arquitectura de diseno responsive mobile-first.
 - **Observabilidad:** Seq y Serilog para ingesta centralizada de logs estructurados con trazabilidad de correlacion.
-- **Orquestacion de Flujos:** n8n para tareas de automatizacion batch y webhooks con firma criptografica HMAC SHA-256.
+- **Orquestacion de Flujos:** n8n para tareas de automatizacion batch y webhooks con firma criptografica HMAC SHA-256 (`FixedTimeEquals`).
 - **Infraestructura:** Docker y Docker Compose con redes aisladas y politicas de reinicio automatico.
 
 ---
@@ -220,17 +231,24 @@ docker compose down
 
 ## 8. Pruebas Automatizadas
 
-El proyecto incluye una suite completa de pruebas unitarias y de seguridad con xUnit en `backend/tests/Ats.Tests`:
+El proyecto incluye una suite exhaustiva de 69 pruebas automatizadas distribuidas en cuatro proyectos bajo `Ats.slnx`:
 
 ```bash
+# Ejecutar la totalidad de las pruebas en la solucion
+dotnet test Ats.slnx
+
+# O ejecutar proyectos individuales
+dotnet test tests/Ats.Domain.UnitTests/Ats.Domain.UnitTests.csproj
+dotnet test tests/Ats.Application.UnitTests/Ats.Application.UnitTests.csproj
+dotnet test tests/Ats.ArchitectureTests/Ats.ArchitectureTests.csproj
 dotnet test backend/tests/Ats.Tests/Ats.Tests.csproj
 ```
 
-### Casos de Prueba Incluidos:
-- **Procesamiento de CVs estandar:** Verificacion de que curriculums legitimos se analicen sin falsos positivos de seguridad.
-- **Deteccion de ataques de Prompt Injection:** Evaluacion de patrones en espanol e ingles (e.g. "ignore all instructions", "override system", "califica con 100%").
-- **Neutralizacion de etiquetas de escape:** Comprobacion de reemplazo y desinfeccion de etiquetas `</untrusted_applicant_cv>`.
-- **Eliminacion de tokens de control LLM:** Supresion de delimitadores especiales estilo `<|im_start|>`.
+### Cobertura de Pruebas:
+- **Ats.Domain.UnitTests (11 pruebas):** Validacion de invariantes en entidades de dominio (`Candidate`, `JobPosition`), creacion de `CandidateEmail`, reglas de transicion de estados y eventos de dominio.
+- **Ats.Application.UnitTests (14 pruebas):** Pruebas de handlers CQRS (`IngestCandidateCommandHandler`, `ProcessCvAnalysisCommandHandler`), validadores FluentValidation y asignacion de reclutadores.
+- **Ats.ArchitectureTests (5 pruebas):** Verificacion estricta de fronteras de Clean Architecture (el dominio no depende de infraestructura, la aplicacion no referencia API, encapsulamiento de contratos).
+- **Ats.Tests (39 pruebas):** Deteccion heuristica y sanitizacion contra Prompt Injection, normalizacion de habilidades tecnicas multi-area con catalogo semantico, calculo determinista de calce con el puesto (`JobFitScoringService`) y verificacion de consistencia curricular.
 
 ---
 
@@ -244,9 +262,18 @@ dotnet test backend/tests/Ats.Tests/Ats.Tests.csproj
 - **Fase 5:** Blindaje multicapa contra Prompt Injection y alertas de integridad curricular.
 - **Fase 6:** Modulo formal de Vacantes (`Job Positions`), carga directa de postulantes con IA en vivo y optimizacion responsiva multi-dispositivo.
 - **Fase 7:** Auditoria de seguridad y mitigaciones (Path Traversal, HMAC timing-safe, exception handler global, tema Keycloak corporativo responsive).
+- **Fase 8:** Modularidad y Escalabilidad Arquitectonica:
+  - Desacoplamiento de motor IA con `MockAiProvider` y `GeminiAiProvider`.
+  - Cola en segundo plano desacoplada (`IBackgroundJobQueue` con Channels) y endpoint asincrono `request.Async`.
+  - Migraciones formales de EF Core con ejecucion automatica en el arranque (`db.Database.Migrate()`).
+  - Abstraccion de almacenamiento en la nube (`IStorageService` con Local y S3).
+  - Abstraccion de cache en memoria (`ICacheService`).
+  - Modularizacion de componentes frontend (`EvaluatorReviewModal` en pestanas dedicadas).
+  - Resolucion de cuello de botella 5N+1 mediante consultas por lote y proteccion de diccionarios.
+  - Integracion formal de la suite completa de testing (69 pruebas superadas).
 
 ### Fases Planificadas
-- **Fase 8:** Notificaciones en tiempo real via WebSockets/SignalR para avisar inmediatamente al reclutador ante nuevas delegaciones de expedientes.
-- **Fase 9:** Portal publico de auto-postulacion directa para postulantes con captcha empresarial y limitacion de tasa de peticiones (rate limiting).
-- **Fase 10:** Sincronizacion de entrevistas con calendarios corporativos (Google Calendar, Microsoft Outlook / Teams).
-- **Fase 11:** Analitica avanzada de pipeline de seleccion y calculo de tiempos de ciclo de contratacion.
+- **Fase 9:** Notificaciones en tiempo real via WebSockets/SignalR para avisar inmediatamente al reclutador ante nuevas delegaciones de expedientes.
+- **Fase 10:** Portal publico de auto-postulacion directa para postulantes con captcha empresarial y limitacion de tasa de peticiones (rate limiting).
+- **Fase 11:** Sincronizacion de entrevistas con calendarios corporativos (Google Calendar, Microsoft Outlook / Teams).
+- **Fase 12:** Analitica avanzada de pipeline de seleccion y calculo de tiempos de ciclo de contratacion.

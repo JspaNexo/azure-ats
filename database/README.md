@@ -113,3 +113,20 @@ docker compose exec postgres psql -U postgres -d ats_db
 docker compose exec postgres psql -U postgres -d keycloak_db -c "\dt"
 ```
 
+---
+
+## 4. Migraciones de Entity Framework Core
+
+Adicionalmente a los scripts SQL de inicializacion rapida para Docker, el backend cuenta con migraciones formales de EF Core en `backend/src/Ats.Infrastructure/Persistence/Migrations/`:
+
+- **Migracion Inicial:** `InitialCreate` (creacion y parametrizacion completa del modelo relacional en C#).
+- **Auto-migracion en arranque:** El metodo `Program.cs` ejecuta `db.Database.Migrate()` en el inicio del servicio, asegurando que cualquier cambio en las entidades de dominio se aplique automaticamente al arrancar el contenedor o la aplicacion en local.
+- **Comandos de gestion:**
+  ```bash
+  # Agregar una nueva migracion
+  dotnet ef migrations add <NombreMigracion> --project backend/src/Ats.Infrastructure --startup-project backend/src/Ats.Api
+
+  # Aplicar migraciones manualmente
+  dotnet ef database update --project backend/src/Ats.Infrastructure --startup-project backend/src/Ats.Api
+  ```
+

@@ -22,34 +22,38 @@ backend/
 │   │   └── ValueObjects/           # Email, Scores, Evidence
 │   │
 │   ├── Ats.Application/            # Casos de uso de negocio (CQRS), DTOs, Validadores e Interfaces
-│   │   ├── Common/                 # Interfaces (IRepository, IAiProvider, IPdfTextExtractor, etc.)
+│   │   ├── Common/                 # Interfaces (IRepository, IAiProvider, IStorageService, ICacheService, etc.)
 │   │   ├── DTOs/                   # Records inmutables para transferencia de datos
 │   │   └── Features/               # Casos de uso agrupados por agregado:
-│   │       ├── Candidates/         # GetCandidates, GetCandidateById, AssignRecruiter, SubmitDecision
-│   │       ├── JobPositions/       # GetJobPositions, CreateJobPosition, UpdateJobPositionStatus
-│   │       ├── Ingestion/          # IngestAndEvaluateCandidateCommand & Pipeline
-│   │       ├── CvProcessing/       # ProcessCvCommand
-│   │       ├── Disc/               # ProcessDiscCommand
-│   │       └── Reports/            # GenerateReportCommand
+│   │       ├── Candidates/         # GetCandidates (por lote), GetCandidateById, AssignRecruiter, SubmitDecision
+│   │       ├── JobPositions/       # GetJobPositions (con cache), CreateJobPosition, UpdateJobPositionStatus
+│   │       ├── Ingestion/          # IngestCandidateCommandHandler & soporte asincrono (IBackgroundJobQueue)
+│   │       ├── Scoring/            # JobFitScoringService (calce determinista de puesto y habilidades)
+│   │       ├── CvProcessing/       # ProcessCvAnalysisCommandHandler
+│   │       ├── Disc/               # ProcessDiscInterpretationCommandHandler
+│   │       └── Reports/            # GenerateInterviewReportCommandHandler y GetReportPdfQueryHandler
 │   │
 │   ├── Ats.Infrastructure/         # Implementacion de adaptadores, persistencia y servicios externos
-│   │   ├── Persistence/            # AtsDbContext, migraciones y repositorios EF Core
+│   │   ├── Persistence/            # ApplicationDbContext, migraciones formales y repositorios EF Core
 │   │   │   ├── Configurations/     # Mapeo Fluent API con PostgreSQL
-│   │   │   └── Repositories/       # CandidateRepository, JobPositionRepository
+│   │   │   ├── Migrations/         # Migraciones formales EF Core (InitialCreate)
+│   │   │   └── Repositories/       # CandidateRepository, JobPositionRepository, etc. (con metodos por lote)
 │   │   └── Services/
-│   │       ├── Ai/                 # GeminiAiService con systemInstruction y defensas anti-prompt injection
+│   │       ├── Ai/                 # GeminiAiProvider (resiliencia multi-modelo) y MockAiProvider
+│   │       ├── Caching/            # MemoryCacheService (abstraccion ICacheService)
+│   │       ├── Jobs/               # ChannelBackgroundJobQueue y QueuedHostedService (BackgroundService)
 │   │       ├── Security/           # CvSecuritySanitizer (deteccion regex y escape de tags XML)
 │   │       ├── Pdf/                # PdfPigTextExtractor (extraccion segura de texto en memoria)
 │   │       ├── Reporting/          # QuestPdfReportGenerator (informe ejecutivo de dos paginas)
-│   │       └── Storage/            # StorageService (gestion de archivos con defensa contra Path Traversal)
+│   │       └── Storage/            # LocalStorageService, S3StorageService y StorageOptions
 │   │
 │   └── Ats.Api/                    # Capa de presentacion, endpoints REST y middlewares
-│       ├── Controllers/            # CandidatesController, JobPositionsController, IngestionController, WebhooksController
+│       ├── Controllers/            # CandidatesController, JobPositionsController, IngestionController, ReportsController
 │       ├── Middlewares/            # GlobalExceptionHandlerMiddleware (ProblemDetails RFC 7807)
-│       └── Program.cs              # Configuracion de DI, autenticacion Keycloak JWT y pipeline HTTP
+│       └── Program.cs              # Configuracion de DI, Keycloak JWT, auto-migracion DB y pipeline HTTP
 │
 ├── tests/
-│   └── Ats.Tests/                  # Pruebas automatizadas xUnit (sanitizacion, seguridad y casos de uso)
+│   └── Ats.Tests/                  # Pruebas unitarias de sanitizacion, seguridad, scoring y habilidades
 │
 └── Dockerfile                      # Compilacion multi-stage (.NET 10 SDK -> ASP.NET Core Runtime)
 ```
@@ -83,13 +87,16 @@ La base de datos se inicializa y actualiza secuencialmente a traves de los scrip
 - **`POST /api/v1/candidates/{id}/decision`**: Registra el dictamen oficial de la entrevista (Aprobado, En Reserva, Descartado) y notas de auditoria.
 
 ### 3.3 Ingesta y Evaluacion en Tiempo Real (`/api/v1/ingestion`)
-- **`POST /api/v1/ingestion/evaluate`**: Endpoint multipart/form-data para carga simultanea de CV en PDF, seleccion de vacante y captura de puntajes DISC. Ejecuta el pipeline completo de Gemini AI y retorna el expediente listo.
+- **`POST /api/v1/ingestion/evaluate`**: Endpoint multipart/form-data para carga simultanea de CV en PDF, seleccion de vacante y captura de puntajes DISC. Soporta modo sincrono (retorna `200 OK` con expediente completo) o asincrono (`Async=true`, encolando en `IBackgroundJobQueue` y retornando `202 Accepted`).
 
-### 3.4 Webhooks y Automatizacion (`/api/v1/webhooks`)
+### 3.4 Reportes Ejecutivos (`/api/v1/reports`)
+- **`GET /api/v1/reports/{id}/pdf`**: Generacion y descarga del informe pre-entrevista en PDF a traves del handler CQRS `GetReportPdfQueryHandler` y `QuestPdfReportGenerator`.
+
+### 3.5 Webhooks y Automatizacion (`/api/v1/webhooks`)
 - **`POST /api/v1/webhooks/cv-processed`**: Recibe resultados de procesamiento asincrono de CV desde n8n. Protegido con firma HMAC SHA-256 en encabezado `X-ATS-Signature`.
 - **`POST /api/v1/webhooks/disc-processed`**: Recibe interpretacion DISC asincrona. Validacion de firma con `CryptographicOperations.FixedTimeEquals`.
 
-### 3.5 Documentos y Salud (`/api/v1/documents`, `/health`)
+### 3.6 Documentos y Salud (`/api/v1/documents`, `/health`)
 - **`GET /api/v1/documents/{id}/download`**: Descarga segura del archivo PDF original o reporte generado.
 - **`GET /health`**: Sondeo de disponibilidad del servicio para balanceadores de carga y healthchecks de Docker.
 
@@ -104,7 +111,7 @@ La base de datos se inicializa y actualiza secuencialmente a traves de los scrip
    - Human-in-the-loop: alertas de integridad curricular en frontend.
 
 2. **Defensa contra Path Traversal:**
-   - [`StorageService.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Infrastructure/Services/Storage/StorageService.cs) normaliza todas las rutas con `Path.GetFullPath()` y verifica que pertenezcan estrictamente al subdirectorio base de almacenamiento antes de realizar lecturas o escrituras.
+   - [`LocalStorageService.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Infrastructure/Services/Storage/LocalStorageService.cs) normaliza todas las rutas con `Path.GetFullPath()` y verifica que pertenezcan estrictamente al subdirectorio base de almacenamiento antes de realizar lecturas o escrituras.
 
 3. **Prevencion de Timing Attacks:**
    - La validacion de firmas HMAC de webhooks utiliza comparacion en tiempo constante mediante `CryptographicOperations.FixedTimeEquals`.
@@ -113,19 +120,19 @@ La base de datos se inicializa y actualiza secuencialmente a traves de los scrip
    - [`GlobalExceptionHandlerMiddleware.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Api/Middlewares/GlobalExceptionHandlerMiddleware.cs) estandariza los errores bajo RFC 7807 (ProblemDetails), evitando la exposicion de trazas de pila internas en entornos de produccion.
 
 5. **Proteccion de Credenciales:**
-   - Las claves maestras se leen mediante inyeccion de configuracion de ASP.NET Core desde variables de entorno (`Gemini__ApiKey`, `Webhooks__Secret`, `Ingestion__ApiKey`).
+   - Las claves maestras se leen mediante inyeccion de configuracion de ASP.NET Core desde variables de entorno (`Gemini__ApiKey`, `Webhooks__Secret`, `Ingestion__ApiKey`), sin valores por defecto criticos en codigo fuente.
 
 ---
 
 ## 5. Pruebas y Validacion
 
-Para ejecutar el conjunto de pruebas automatizadas:
+Para ejecutar el conjunto completo de 69 pruebas automatizadas bajo la solucion unificada:
 
 ```bash
-# Ejecutar todas las pruebas unitarias
-dotnet test backend/tests/Ats.Tests/Ats.Tests.csproj
+# Ejecutar todas las pruebas de la solucion (Domain, Application, Architecture, Tests)
+dotnet test Ats.slnx
 
-# Ejecutar con reporte detallado
+# Ejecutar proyecto especifico con reporte detallado
 dotnet test backend/tests/Ats.Tests/Ats.Tests.csproj --logger "console;verbosity=detailed"
 ```
 

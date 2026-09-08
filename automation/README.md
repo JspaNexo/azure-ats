@@ -23,14 +23,19 @@ automation/
 
 ## 2. Modos de Procesamiento Disponibles
 
-El sistema soporta dos modalidades de ejecucion complementarias:
+El sistema soporta tres modalidades de ejecucion complementarias:
 
 1. **Ingesta Sincrona en Tiempo Real (Recomendada para la Web UI):**
-   - El frontend consume directamente el endpoint `POST /api/v1/ingestion/evaluate`.
-   - Se procesa la extraccion de PDF, sanitizacion anti-prompt injection, analisis con Gemini AI, calculo DISC y generacion de preguntas STAR en una sola transaccion interactiva con reporte inmediato.
+   - El cliente consume directamente el endpoint `POST /api/v1/ingestion/evaluate` (por defecto `Async=false`).
+   - Se procesa la extraccion de PDF, sanitizacion anti-prompt injection, analisis con Gemini AI, calculo DISC y generacion de preguntas STAR en una sola transaccion interactiva con respuesta `200 OK` y reporte inmediato.
 
-2. **Ingesta Asincrona por Lotes (Orquestada por n8n):**
-   - Adecuada para cargas masivas nocturnas o integracion con sistemas externos de terceros.
+2. **Ingesta Asincrona Desacoplada con Cola Interna (Background Job Queue):**
+   - Adecuada para solicitudes web con alto volumen o conexiones moviles inestables.
+   - Al enviar el parametro `Async=true` en `POST /api/v1/ingestion/evaluate`, el backend registra el candidato y documento de forma inmediata, encola el analisis pesado en la cola interna `IBackgroundJobQueue` (basada en canales de memoria `System.Threading.Channels`) y responde de inmediato con `202 Accepted`.
+   - El servicio alojado `QueuedHostedService` procesa el analisis en segundo plano sin saturar los hilos HTTP.
+
+3. **Ingesta Asincrona por Lotes (Orquestada por n8n):**
+   - Adecuada para integracion con plataformas ATS legadas, correos electronicos entrantes o cargas masivas nocturnas.
    - n8n detecta o recibe el documento y coordina las etapas invocando los webhooks correspondientes en el backend.
 
 ---

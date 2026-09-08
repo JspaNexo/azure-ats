@@ -43,7 +43,11 @@ El archivo `.env` o el entorno del host debe suministrar las siguientes variable
 ```bash
 # Integracion con Google Gemini AI
 Gemini__ApiKey="AIzaSy..."
-Gemini__Model="gemini-2.5-flash"
+Gemini__Model="gemini-flash-lite-latest"
+
+# Almacenamiento Desacoplado (Local / S3)
+Storage__Provider="Local"
+Storage__BasePath="/app/Storage"
 
 # Seguridad y Webhooks
 Webhooks__Secret="ats_webhook_secret_2026"
