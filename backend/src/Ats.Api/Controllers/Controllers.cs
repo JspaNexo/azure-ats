@@ -428,19 +428,33 @@ public class WebhooksController : ApiControllerBase
         }
 
         // 2. Secret webhook header
-        string expectedSecret = _configuration["Webhooks:Secret"] ?? _configuration["Ingestion:ApiKey"] ?? "ats_webhook_secret_2026";
-        if (Request.Headers.TryGetValue("X-Webhook-Secret", out var headerSecret) &&
-            !string.IsNullOrWhiteSpace(headerSecret) &&
-            string.Equals(headerSecret.ToString(), expectedSecret, StringComparison.Ordinal))
+        string? expectedSecret = _configuration["Webhooks:Secret"] ?? _configuration["Ingestion:ApiKey"];
+        
+        if (string.IsNullOrWhiteSpace(expectedSecret))
         {
-            return true;
+            return false;
+        }
+
+        var expectedSecretBytes = System.Text.Encoding.UTF8.GetBytes(expectedSecret);
+
+        if (Request.Headers.TryGetValue("X-Webhook-Secret", out var headerSecret) &&
+            !string.IsNullOrWhiteSpace(headerSecret))
+        {
+            var headerBytes = System.Text.Encoding.UTF8.GetBytes(headerSecret.ToString());
+            if (System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(headerBytes, expectedSecretBytes))
+            {
+                return true;
+            }
         }
 
         if (Request.Headers.TryGetValue("X-Api-Key", out var headerKey) &&
-            !string.IsNullOrWhiteSpace(headerKey) &&
-            string.Equals(headerKey.ToString(), expectedSecret, StringComparison.Ordinal))
+            !string.IsNullOrWhiteSpace(headerKey))
         {
-            return true;
+            var keyBytes = System.Text.Encoding.UTF8.GetBytes(headerKey.ToString());
+            if (System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(keyBytes, expectedSecretBytes))
+            {
+                return true;
+            }
         }
 
         return false;

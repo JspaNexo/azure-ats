@@ -18,7 +18,7 @@ public static class DependencyInjection
     {
         // 1. Database Context
         string connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? "Host=localhost;Port=5432;Database=ats_db;Username=postgres;Password=postgres";
+            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(connectionString));

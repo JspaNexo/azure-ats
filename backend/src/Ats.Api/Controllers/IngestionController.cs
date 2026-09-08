@@ -147,12 +147,23 @@ public class IngestionController : ApiControllerBase
         }
 
         // Check external integration API Key header
-        string expectedApiKey = _configuration["Ingestion:ApiKey"] ?? "ats_internal_dev_key_2026";
-        if (Request.Headers.TryGetValue("X-Api-Key", out var headerKey) &&
-            !string.IsNullOrWhiteSpace(headerKey) &&
-            string.Equals(headerKey.ToString(), expectedApiKey, StringComparison.Ordinal))
+        string? expectedApiKey = _configuration["Ingestion:ApiKey"];
+        
+        if (string.IsNullOrWhiteSpace(expectedApiKey))
         {
-            return true;
+            return false;
+        }
+
+        if (Request.Headers.TryGetValue("X-Api-Key", out var headerKey) &&
+            !string.IsNullOrWhiteSpace(headerKey))
+        {
+            var headerBytes = System.Text.Encoding.UTF8.GetBytes(headerKey.ToString());
+            var expectedBytes = System.Text.Encoding.UTF8.GetBytes(expectedApiKey);
+            
+            if (System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(headerBytes, expectedBytes))
+            {
+                return true;
+            }
         }
 
         return false;

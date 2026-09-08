@@ -223,14 +223,40 @@ public class GetCandidatesQueryHandler
             candidates = candidates.Where(c => c.AssignedRecruiterId == query.RecruiterId).ToList();
         }
 
+        if (!candidates.Any())
+        {
+            return Result<IReadOnlyList<CandidateDto>>.Success((IReadOnlyList<CandidateDto>)new List<CandidateDto>());
+        }
+
+        var candidateIds = candidates.Select(c => c.Id).ToList();
+
+        // BULK FETCH
+        var cvAnalyses = await _cvAnalysisRepository.GetByCandidateIdsAsync(candidateIds, cancellationToken);
+        var discInterps = await _discRepository.GetInterpretationsByCandidateIdsAsync(candidateIds, cancellationToken);
+        var discResults = await _discRepository.GetResultsByCandidateIdsAsync(candidateIds, cancellationToken);
+        var reports = await _reportRepository.GetByCandidateIdsAsync(candidateIds, cancellationToken);
+        
+        var jobIds = candidates.Where(c => c.JobPositionId.HasValue).Select(c => c.JobPositionId!.Value).Distinct().ToList();
+        IReadOnlyList<JobPosition> jobPositions = new List<JobPosition>();
+        if (_jobPositionRepository != null && jobIds.Any())
+        {
+            jobPositions = await _jobPositionRepository.GetByIdsAsync(jobIds, cancellationToken);
+        }
+
+        var cvAnalysesDict = cvAnalyses.ToDictionary(a => a.CandidateId);
+        var discInterpsDict = discInterps.ToDictionary(i => i.CandidateId);
+        var discResultsDict = discResults.ToDictionary(r => r.CandidateId);
+        var reportsDict = reports.ToDictionary(r => r.CandidateId);
+        var jobPositionsDict = jobPositions.ToDictionary(j => j.Id);
+
         var dtos = new List<CandidateDto>();
 
         foreach (var c in candidates)
         {
-            var cvAnalysis = await _cvAnalysisRepository.GetByCandidateIdAsync(c.Id, cancellationToken);
-            var discInterp = await _discRepository.GetInterpretationByCandidateIdAsync(c.Id, cancellationToken);
-            var discResult = await _discRepository.GetResultByCandidateIdAsync(c.Id, cancellationToken);
-            var report = await _reportRepository.GetByCandidateIdAsync(c.Id, cancellationToken);
+            cvAnalysesDict.TryGetValue(c.Id, out var cvAnalysis);
+            discInterpsDict.TryGetValue(c.Id, out var discInterp);
+            discResultsDict.TryGetValue(c.Id, out var discResult);
+            reportsDict.TryGetValue(c.Id, out var report);
 
             CvAnalysisDto? cvDto = null;
             if (cvAnalysis != null && !string.IsNullOrWhiteSpace(cvAnalysis.AnalysisJson) && cvAnalysis.AnalysisJson != "{}")
@@ -262,9 +288,9 @@ public class GetCandidatesQueryHandler
             if (cvDto != null && _jobFitScoringService != null)
             {
                 JobPosition? position = null;
-                if (c.JobPositionId.HasValue && _jobPositionRepository != null)
+                if (c.JobPositionId.HasValue && jobPositionsDict.TryGetValue(c.JobPositionId.Value, out var foundPosition))
                 {
-                    position = await _jobPositionRepository.GetByIdAsync(c.JobPositionId.Value, cancellationToken);
+                    position = foundPosition;
                 }
                 jobFit = _jobFitScoringService.CalculateFit(cvDto, position);
             }
