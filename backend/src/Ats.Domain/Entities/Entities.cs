@@ -171,6 +171,11 @@ public sealed class CvAnalysis : AggregateRoot<Guid>
         RaiseDomainEvent(new CvAnalysisCompletedDomainEvent(CandidateId, Id, DateTime.UtcNow));
     }
 
+    public void UpdateDocument(Guid documentId)
+    {
+        DocumentId = documentId;
+    }
+
     public void MarkAsFailed(string errorMessage)
     {
         Status = ProcessingStatus.Failed;

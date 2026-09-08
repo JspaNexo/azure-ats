@@ -1,4 +1,4 @@
-﻿using Ats.Application.Common.Interfaces;
+using Ats.Application.Common.Interfaces;
 using Ats.Application.DTOs;
 using Ats.Domain.Entities;
 
@@ -32,9 +32,10 @@ public class JobFitScoringService
             return CalculateGenericFit(cvAnalysis, candidateSkills);
         }
 
-        // 2. Extract required skills from JobPosition
+        // 2. Extract and sanitize required skills from JobPosition
         var requiredTokens = jobPosition.Requirements
             .Split(new[] { ',', ';', '\n', '\r', '•', '-' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(t => t.Trim().TrimEnd('.', ';', ':', ',', '!'))
             .Where(t => t.Length >= 2)
             .Select(t =>
             {
@@ -70,7 +71,11 @@ public class JobFitScoringService
                     Notes: $"Evidencia: {matched.Original.Evidence}"
                 ));
 
-                double weight = matched.Original.Confidence >= 0.8 ? 1.0 : (matched.Original.Confidence >= 0.5 ? 0.75 : 0.5);
+                double conf = Math.Clamp(matched.Original.Confidence, 0.5, 1.0);
+                double expRatio = jobPosition.MinExperienceYears > 0
+                    ? Math.Clamp((double)matched.Original.ExperienceYears / Math.Max(1, jobPosition.MinExperienceYears - 1), 0.5, 1.2)
+                    : 1.0;
+                double weight = Math.Clamp(0.75 + (conf * 0.20) + (Math.Min(1.0, expRatio) * 0.05), 0.75, 1.0);
                 skillScoreAccumulator += weight;
             }
             else
@@ -86,57 +91,73 @@ public class JobFitScoringService
             }
         }
 
-        // Percentage of skills met (up to 70 points)
+        // 1. Percentage of skills met (up to 70 points)
         double skillPercentage = skillScoreAccumulator / requiredTokens.Count;
         double baseScore = skillPercentage * 70.0;
 
-        // Experience adjustment (up to 15 points)
-        double expScore = 0;
-        if (cvAnalysis.TotalExperienceYears >= jobPosition.MinExperienceYears)
+        // 2. Identify bonus skills not in core requirements (up to 5 points)
+        var bonusSkills = candidateSkills
+            .Where(cs => !matches.Any(m => m.IsMatched && (string.Equals(m.SkillName, cs.Canonical, StringComparison.OrdinalIgnoreCase) || cs.Canonical.Contains(m.SkillName, StringComparison.OrdinalIgnoreCase))))
+            .Select(cs => cs.Canonical)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(5)
+            .ToList();
+        double bonusScore = Math.Min(5.0, bonusSkills.Count * 1.0);
+
+        // 3. Experience adjustment (up to 15 points)
+        double expScore;
+        if (jobPosition.MinExperienceYears > 0)
         {
-            expScore = 15;
-        }
-        else if (jobPosition.MinExperienceYears > 0)
-        {
-            expScore = Math.Max(0, (cvAnalysis.TotalExperienceYears / jobPosition.MinExperienceYears) * 15.0);
+            if (cvAnalysis.TotalExperienceYears >= jobPosition.MinExperienceYears)
+            {
+                double extraYears = cvAnalysis.TotalExperienceYears - jobPosition.MinExperienceYears;
+                expScore = Math.Min(15.0, 12.0 + Math.Min(3.0, extraYears * 0.75));
+            }
+            else
+            {
+                expScore = Math.Max(1.0, (cvAnalysis.TotalExperienceYears / (double)jobPosition.MinExperienceYears) * 11.0);
+            }
         }
         else
         {
-            expScore = 15;
+            expScore = Math.Min(15.0, 8.0 + (cvAnalysis.TotalExperienceYears * 1.5));
         }
 
-        // Seniority assessment (up to 15 points)
-        double seniorityScore = 10;
+        // 4. Seniority assessment (up to 10 points)
+        double seniorityScore;
         string seniorityAssessment;
         string candidateSen = cvAnalysis.EstimatedSeniority?.ToLowerInvariant() ?? "";
         string jobSen = jobPosition.Seniority.ToLowerInvariant();
 
-        if (candidateSen.Contains("senior") || candidateSen.Contains("lead"))
+        if (candidateSen.Contains("lead"))
         {
-            seniorityScore = 15;
+            seniorityScore = 10.0;
+            seniorityAssessment = "Perfil Lead con liderazgo técnico demostrado.";
+        }
+        else if (candidateSen.Contains("senior"))
+        {
+            seniorityScore = jobSen.Contains("lead") ? 7.5 : 10.0;
             seniorityAssessment = "Seniority sólido para el puesto requerido.";
         }
         else if (candidateSen.Contains("semi") || candidateSen.Contains("mid"))
         {
-            seniorityScore = jobSen.Contains("senior") ? 8 : 15;
-            seniorityAssessment = jobSen.Contains("senior")
+            seniorityScore = jobSen.Contains("senior") || jobSen.Contains("lead") ? 5.5 : 9.5;
+            seniorityAssessment = jobSen.Contains("senior") || jobSen.Contains("lead")
                 ? "Nivel Semi-Senior postulado a vacante Senior. Se sugiere evaluar potencial y autonomía."
                 : "Seniority acorde a la posición.";
         }
         else
         {
-            seniorityScore = jobSen.Contains("junior") ? 15 : 5;
+            seniorityScore = jobSen.Contains("junior") ? 9.5 : 2.5;
             seniorityAssessment = "Perfil Junior. Requiere mentoría o supervisión técnica.";
         }
 
-        int finalScore = (int)Math.Round(Math.Clamp(baseScore + expScore + seniorityScore, 10, 99));
+        // 5. Education & Certifications bonus (up to 5 points)
+        double educationCertScore = 0;
+        if ((cvAnalysis.Certifications?.Count ?? 0) > 0) educationCertScore += Math.Min(3.0, (cvAnalysis.Certifications?.Count ?? 0) * 1.5);
+        if ((cvAnalysis.Education?.Count ?? 0) > 0) educationCertScore += 2.0;
 
-        // Identify bonus skills
-        var bonusSkills = candidateSkills
-            .Where(cs => !matches.Any(m => string.Equals(m.SkillName, cs.Canonical, StringComparison.OrdinalIgnoreCase)))
-            .Select(cs => cs.Canonical)
-            .Take(5)
-            .ToList();
+        int finalScore = (int)Math.Round(Math.Clamp(baseScore + bonusScore + expScore + seniorityScore + educationCertScore, 10, 99));
 
         string fitCategory = finalScore switch
         {
@@ -157,22 +178,24 @@ public class JobFitScoringService
 
     private static JobFitResult CalculateGenericFit(CvAnalysisDto cvAnalysis, List<(SkillDto Original, string Canonical)> candidateSkills)
     {
-        double score = 50; // baseline
+        double baseScore = 40.0;
 
-        // Skills quantity & confidence
-        if (candidateSkills.Count >= 5) score += 15;
-        else score += candidateSkills.Count * 3;
+        // Skills count & confidence
+        double avgConf = candidateSkills.Any() ? candidateSkills.Average(s => s.Original.Confidence) : 0.7;
+        double skillsScore = Math.Min(25.0, candidateSkills.Count * 2.5 * avgConf);
 
-        // Experience
-        if (cvAnalysis.TotalExperienceYears >= 5) score += 15;
-        else if (cvAnalysis.TotalExperienceYears >= 2) score += 10;
-        else score += 5;
+        // Experience depth
+        double expScore = Math.Min(20.0, cvAnalysis.TotalExperienceYears * 2.5);
 
-        // Certifications & Education
-        if ((cvAnalysis.Certifications?.Count ?? 0) > 0) score += 5;
-        if ((cvAnalysis.Education?.Count ?? 0) > 0) score += 5;
+        // Seniority
+        string sen = cvAnalysis.EstimatedSeniority?.ToLowerInvariant() ?? "";
+        double senScore = sen.Contains("lead") ? 10.0 : (sen.Contains("senior") ? 8.0 : (sen.Contains("semi") ? 5.0 : 3.0));
 
-        int finalScore = (int)Math.Round(Math.Clamp(score, 40, 96));
+        // Education & Certifications
+        double certScore = Math.Min(3.0, (cvAnalysis.Certifications?.Count ?? 0) * 1.5);
+        double eduScore = Math.Min(2.0, (cvAnalysis.Education?.Count ?? 0) * 1.0);
+
+        int finalScore = (int)Math.Round(Math.Clamp(baseScore + skillsScore + expScore + senScore + certScore + eduScore, 35, 96));
 
         string category = finalScore >= 80 ? "Perfil técnico destacado" : "Perfil calificado";
 

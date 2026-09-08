@@ -151,10 +151,18 @@ public class GetCandidateByIdQueryHandler
             {
                 position = await _jobPositionRepository.GetByIdAsync(candidate.JobPositionId.Value, cancellationToken);
             }
+            if (position == null && !string.IsNullOrWhiteSpace(candidate.TargetRole) && _jobPositionRepository != null)
+            {
+                var allPositions = await _jobPositionRepository.GetAllAsync(status: null, cancellationToken: cancellationToken);
+                position = allPositions.FirstOrDefault(p =>
+                    string.Equals(p.Title, candidate.TargetRole, StringComparison.OrdinalIgnoreCase) ||
+                    candidate.TargetRole.Contains(p.Title, StringComparison.OrdinalIgnoreCase) ||
+                    p.Title.Contains(candidate.TargetRole, StringComparison.OrdinalIgnoreCase));
+            }
             jobFit = _jobFitScoringService.CalculateFit(cvDto, position);
         }
 
-        int matchScore = jobFit?.OverallScore ?? (cvDto != null ? Math.Min(97, Math.Max(75, 76 + (expYears * 2) + (cvDto.Skills?.Count ?? 0))) : 88);
+        int matchScore = jobFit?.OverallScore ?? (cvDto != null ? _jobFitScoringService?.CalculateFit(cvDto, null).OverallScore ?? 70 : 0);
         string status = report != null && report.Status == Domain.Enums.ReportStatus.Generated ? "ReportReady" :
                         discInterp != null && discInterp.Status == Domain.Enums.ProcessingStatus.Processed ? "DiscEvaluated" :
                         cvAnalysis != null && cvAnalysis.Status == Domain.Enums.ProcessingStatus.Processed ? "CvAnalyzed" : "Registered";
@@ -236,18 +244,15 @@ public class GetCandidatesQueryHandler
         var discResults = await _discRepository.GetResultsByCandidateIdsAsync(candidateIds, cancellationToken);
         var reports = await _reportRepository.GetByCandidateIdsAsync(candidateIds, cancellationToken);
         
-        var jobIds = candidates.Where(c => c.JobPositionId.HasValue).Select(c => c.JobPositionId!.Value).Distinct().ToList();
-        IReadOnlyList<JobPosition> jobPositions = new List<JobPosition>();
-        if (_jobPositionRepository != null && jobIds.Any())
-        {
-            jobPositions = await _jobPositionRepository.GetByIdsAsync(jobIds, cancellationToken);
-        }
+        IReadOnlyList<JobPosition> allJobPositions = _jobPositionRepository != null
+            ? await _jobPositionRepository.GetAllAsync(status: null, cancellationToken: cancellationToken)
+            : new List<JobPosition>();
 
         var cvAnalysesDict = cvAnalyses.DistinctBy(a => a.CandidateId).ToDictionary(a => a.CandidateId);
         var discInterpsDict = discInterps.DistinctBy(i => i.CandidateId).ToDictionary(i => i.CandidateId);
         var discResultsDict = discResults.DistinctBy(r => r.CandidateId).ToDictionary(r => r.CandidateId);
         var reportsDict = reports.DistinctBy(r => r.CandidateId).ToDictionary(r => r.CandidateId);
-        var jobPositionsDict = jobPositions.DistinctBy(j => j.Id).ToDictionary(j => j.Id);
+        var jobPositionsDict = allJobPositions.DistinctBy(j => j.Id).ToDictionary(j => j.Id);
 
         var dtos = new List<CandidateDto>();
 
@@ -292,10 +297,17 @@ public class GetCandidatesQueryHandler
                 {
                     position = foundPosition;
                 }
+                if (position == null && !string.IsNullOrWhiteSpace(c.TargetRole))
+                {
+                    position = allJobPositions.FirstOrDefault(p =>
+                        string.Equals(p.Title, c.TargetRole, StringComparison.OrdinalIgnoreCase) ||
+                        c.TargetRole.Contains(p.Title, StringComparison.OrdinalIgnoreCase) ||
+                        p.Title.Contains(c.TargetRole, StringComparison.OrdinalIgnoreCase));
+                }
                 jobFit = _jobFitScoringService.CalculateFit(cvDto, position);
             }
 
-            int matchScore = jobFit?.OverallScore ?? (cvDto != null ? Math.Min(97, Math.Max(75, 76 + (expYears * 2) + (cvDto.Skills?.Count ?? 0))) : 88);
+            int matchScore = jobFit?.OverallScore ?? (cvDto != null ? _jobFitScoringService?.CalculateFit(cvDto, null).OverallScore ?? 70 : 0);
             string status = report != null && report.Status == Domain.Enums.ReportStatus.Generated ? "ReportReady" :
                             discInterp != null && discInterp.Status == Domain.Enums.ProcessingStatus.Processed ? "DiscEvaluated" :
                             cvAnalysis != null && cvAnalysis.Status == Domain.Enums.ProcessingStatus.Processed ? "CvAnalyzed" : "Registered";

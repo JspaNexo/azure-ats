@@ -43,9 +43,9 @@ public class ProcessCvAnalysisCommandHandler
 
     public async Task<Result<CvAnalysisDto>> HandleAsync(ProcessCvAnalysisCommand command, CancellationToken cancellationToken = default)
     {
-        // 1. Check if candidate already has a processed CV analysis (Cache / Token Guard)
+        // 1. Check if candidate already has a processed CV analysis for this document (Cache / Token Guard)
         var existingAnalysis = await _cvAnalysisRepository.GetByCandidateIdAsync(command.CandidateId, cancellationToken);
-        if (existingAnalysis is not null && existingAnalysis.Status == ProcessingStatus.Processed && !string.IsNullOrEmpty(existingAnalysis.AnalysisJson))
+        if (existingAnalysis is not null && existingAnalysis.DocumentId == command.DocumentId && existingAnalysis.Status == ProcessingStatus.Processed && !string.IsNullOrEmpty(existingAnalysis.AnalysisJson))
         {
             var cachedDto = JsonSerializer.Deserialize<CvAnalysisDto>(existingAnalysis.AnalysisJson);
             if (cachedDto is not null) return Result.Success(cachedDto);
@@ -55,7 +55,7 @@ public class ProcessCvAnalysisCommandHandler
         var existingJob = await _processingJobRepository.GetByEventIdAsync(command.EventId, cancellationToken);
         if (existingJob is not null && existingJob.Status == ProcessingStatus.Processed)
         {
-            if (existingAnalysis is not null && !string.IsNullOrEmpty(existingAnalysis.AnalysisJson))
+            if (existingAnalysis is not null && existingAnalysis.DocumentId == command.DocumentId && !string.IsNullOrEmpty(existingAnalysis.AnalysisJson))
             {
                 var cachedDto = JsonSerializer.Deserialize<CvAnalysisDto>(existingAnalysis.AnalysisJson);
                 if (cachedDto is not null) return Result.Success(cachedDto);
@@ -128,8 +128,15 @@ public class ProcessCvAnalysisCommandHandler
             analysisResult = Result.Success(analysisResult.Value with { Warnings = combinedWarnings.Distinct().ToList() });
         }
 
-        var cvAnalysis = await _cvAnalysisRepository.GetByCandidateIdAsync(command.CandidateId, cancellationToken)
-            ?? CvAnalysis.CreatePending(command.CandidateId, command.DocumentId, "GoogleGemini", "gemini-1.5-flash", "v1.0");
+        var cvAnalysis = await _cvAnalysisRepository.GetByCandidateIdAsync(command.CandidateId, cancellationToken);
+        if (cvAnalysis is null)
+        {
+            cvAnalysis = CvAnalysis.CreatePending(command.CandidateId, command.DocumentId, "GoogleGemini", "gemini-1.5-flash", "v1.0");
+        }
+        else
+        {
+            cvAnalysis.UpdateDocument(command.DocumentId);
+        }
 
         string jsonContent = JsonSerializer.Serialize(analysisResult.Value);
         cvAnalysis.MarkAsProcessed(jsonContent);
