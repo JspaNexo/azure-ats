@@ -7,6 +7,7 @@ using Ats.Application.Features.Documents;
 using Ats.Application.Features.Reports;
 using Ats.Application.Features.Ingestion;
 using Ats.Application.Features.JobPositions;
+using Ats.Application.Features.Scoring;
 
 namespace Ats.Application;
 
@@ -22,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<GetCandidatesQueryHandler>();
         services.AddScoped<UploadCvCommandHandler>();
         services.AddScoped<ProcessCvAnalysisCommandHandler>();
+        services.AddScoped<RecordCvFeedbackCommandHandler>();
         services.AddScoped<SubmitDiscResultCommandHandler>();
         services.AddScoped<ProcessDiscInterpretationCommandHandler>();
         services.AddScoped<GenerateInterviewReportCommandHandler>();
@@ -33,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<CreateJobPositionCommandHandler>();
         services.AddScoped<GetJobPositionsQueryHandler>();
         services.AddScoped<UpdateJobPositionStatusCommandHandler>();
+        services.AddScoped<JobFitScoringService>();
 
         return services;
     }

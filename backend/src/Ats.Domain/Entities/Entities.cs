@@ -177,6 +177,14 @@ public sealed class CvAnalysis : AggregateRoot<Guid>
         ErrorMessage = errorMessage;
         UpdatedAtUtc = DateTime.UtcNow;
     }
+
+    public string? FeedbackJson { get; private set; }
+
+    public void RecordEvaluatorFeedback(string feedbackJson)
+    {
+        FeedbackJson = feedbackJson;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
 }
 
 public sealed class DiscResult : AggregateRoot<Guid>

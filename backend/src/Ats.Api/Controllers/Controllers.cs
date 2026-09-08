@@ -30,6 +30,22 @@ public abstract class ApiControllerBase : ControllerBase
         };
     }
 
+    protected IActionResult HandleResult(Result result)
+    {
+        if (result.IsSuccess)
+        {
+            return NoContent();
+        }
+
+        return result.Error.Type switch
+        {
+            ErrorType.NotFound => NotFound(CreateProblemDetails(result.Error, StatusCodes.Status404NotFound)),
+            ErrorType.Validation => BadRequest(CreateProblemDetails(result.Error, StatusCodes.Status400BadRequest)),
+            ErrorType.Conflict => Conflict(CreateProblemDetails(result.Error, StatusCodes.Status409Conflict)),
+            _ => StatusCode(StatusCodes.Status500InternalServerError, CreateProblemDetails(result.Error, StatusCodes.Status500InternalServerError))
+        };
+    }
+
     private ProblemDetails CreateProblemDetails(Error error, int statusCode)
     {
         return new ProblemDetails
@@ -53,6 +69,7 @@ public class CandidatesController : ApiControllerBase
     private readonly UpdateEvaluatorDecisionCommandHandler _updateDecisionHandler;
     private readonly AssignCandidateCommandHandler _assignHandler;
     private readonly GetRecruitersQueryHandler _getRecruitersHandler;
+    private readonly RecordCvFeedbackCommandHandler? _feedbackHandler;
 
     public CandidatesController(
         RegisterCandidateCommandHandler registerHandler,
@@ -60,7 +77,8 @@ public class CandidatesController : ApiControllerBase
         GetCandidatesQueryHandler getAllHandler,
         UpdateEvaluatorDecisionCommandHandler updateDecisionHandler,
         AssignCandidateCommandHandler assignHandler,
-        GetRecruitersQueryHandler getRecruitersHandler)
+        GetRecruitersQueryHandler getRecruitersHandler,
+        RecordCvFeedbackCommandHandler? feedbackHandler = null)
     {
         _registerHandler = registerHandler;
         _getByIdHandler = getByIdHandler;
@@ -68,6 +86,7 @@ public class CandidatesController : ApiControllerBase
         _updateDecisionHandler = updateDecisionHandler;
         _assignHandler = assignHandler;
         _getRecruitersHandler = getRecruitersHandler;
+        _feedbackHandler = feedbackHandler;
     }
 
     [HttpGet]
@@ -136,6 +155,25 @@ public class CandidatesController : ApiControllerBase
     {
         var query = new GetRecruitersQuery();
         var result = await _getRecruitersHandler.HandleAsync(query, cancellationToken);
+        return HandleResult(result);
+    }
+
+    [HttpPatch("{id:guid}/cv-feedback")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RecordCvFeedback(
+        [FromRoute] Guid id,
+        [FromBody] CvFeedbackDto feedback,
+        CancellationToken cancellationToken)
+    {
+        if (_feedbackHandler is null)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, "Servicio de feedback no configurado.");
+        }
+
+        var command = new RecordCvFeedbackCommand(id, feedback);
+        var result = await _feedbackHandler.HandleAsync(command, cancellationToken);
         return HandleResult(result);
     }
 }

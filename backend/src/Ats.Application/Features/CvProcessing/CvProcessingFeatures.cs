@@ -85,7 +85,7 @@ public class ProcessCvAnalysisCommandHandler
             return Result.Failure<CvAnalysisDto>(Error.NotFound("Document.NotFound", "Documento no encontrado."));
         }
 
-        // 3. Extract text from PDF
+        // 3. Retrieve PDF stream and copy to memory to allow multiple reads
         using var stream = await _storageService.GetFileAsync(document.StoragePath, cancellationToken);
         if (stream is null)
         {
@@ -94,21 +94,38 @@ public class ProcessCvAnalysisCommandHandler
             return Result.Failure<CvAnalysisDto>(Error.NotFound("Storage.FileNotFound", "Archivo PDF no encontrado."));
         }
 
-        string extractedText = await _pdfTextExtractor.ExtractTextAsync(stream, cancellationToken);
-        if (string.IsNullOrWhiteSpace(extractedText) || extractedText.Length < 50)
+        using var memStream = new MemoryStream();
+        await stream.CopyToAsync(memStream, cancellationToken);
+        memStream.Seek(0, SeekOrigin.Begin);
+
+        // 4. Primary: Direct Multimodal PDF Analysis with Gemini
+        var analysisResult = await _cvAnalyzer.AnalyzeCvFromPdfAsync(memStream, document.FileName, cancellationToken);
+
+        // 5. Fallback: If multimodal analysis fails, fallback to raw text extraction via PdfPig
+        if (analysisResult.IsFailure)
         {
-            job.MarkAsFailed("Pdf.NoText", "El archivo PDF no contiene suficiente texto extraíble.");
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return Result.Failure<CvAnalysisDto>(Error.Validation("Pdf.NoText", "El archivo PDF no contiene texto extraíble."));
+            memStream.Seek(0, SeekOrigin.Begin);
+            string extractedText = await _pdfTextExtractor.ExtractTextAsync(memStream, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(extractedText) && extractedText.Length >= 50)
+            {
+                analysisResult = await _cvAnalyzer.AnalyzeCvTextAsync(extractedText, cancellationToken);
+            }
         }
 
-        // 4. Analyze CV with AI
-        var analysisResult = await _cvAnalyzer.AnalyzeCvTextAsync(extractedText, cancellationToken);
         if (analysisResult.IsFailure)
         {
             job.MarkAsFailed(analysisResult.Error.Code, analysisResult.Error.Description);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             return Result.Failure<CvAnalysisDto>(analysisResult.Error);
+        }
+
+        // 6. Cross-Validation: Temporal & Experience Consistency Checks
+        var consistencyWarnings = CvConsistencyChecker.CheckConsistency(analysisResult.Value);
+        if (consistencyWarnings.Count > 0)
+        {
+            var combinedWarnings = new List<string>(analysisResult.Value.Warnings ?? []);
+            combinedWarnings.AddRange(consistencyWarnings);
+            analysisResult = Result.Success(analysisResult.Value with { Warnings = combinedWarnings.Distinct().ToList() });
         }
 
         var cvAnalysis = await _cvAnalysisRepository.GetByCandidateIdAsync(command.CandidateId, cancellationToken)
@@ -130,6 +147,38 @@ public class ProcessCvAnalysisCommandHandler
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return Result.Success(analysisResult.Value);
+    }
+}
+
+public record RecordCvFeedbackCommand(Guid CandidateId, CvFeedbackDto Feedback);
+
+public class RecordCvFeedbackCommandHandler
+{
+    private readonly ICvAnalysisRepository _cvAnalysisRepository;
+    private readonly IUnitOfWork _unitOfWork;
+
+    public RecordCvFeedbackCommandHandler(
+        ICvAnalysisRepository cvAnalysisRepository,
+        IUnitOfWork unitOfWork)
+    {
+        _cvAnalysisRepository = cvAnalysisRepository;
+        _unitOfWork = unitOfWork;
+    }
+
+    public async Task<Result> HandleAsync(RecordCvFeedbackCommand command, CancellationToken cancellationToken = default)
+    {
+        var cvAnalysis = await _cvAnalysisRepository.GetByCandidateIdAsync(command.CandidateId, cancellationToken);
+        if (cvAnalysis == null)
+        {
+            return Result.Failure(Error.NotFound("CvAnalysis.NotFound", $"No se encontró análisis de CV para el candidato {command.CandidateId}."));
+        }
+
+        string feedbackJson = JsonSerializer.Serialize(command.Feedback);
+        cvAnalysis.RecordEvaluatorFeedback(feedbackJson);
+        _cvAnalysisRepository.Update(cvAnalysis);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success();
     }
 }
 
