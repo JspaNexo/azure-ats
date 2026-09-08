@@ -18,6 +18,7 @@ public class IngestCandidateFormRequest
     public int Steadiness { get; set; } = 50;
     public int Conscientiousness { get; set; } = 50;
     public string? PrimaryStyle { get; set; }
+    public bool Async { get; set; } = false;
 }
 
 [Route("api/v1/ingestion")]
@@ -132,9 +133,14 @@ public class IngestionController : ApiControllerBase
             Conscientiousness: request.Conscientiousness,
             PrimaryStyle: request.PrimaryStyle,
             TargetRole: request.TargetRole,
-            JobPositionId: request.JobPositionId);
+            JobPositionId: request.JobPositionId,
+            Asynchronous: request.Async);
 
         var result = await _ingestHandler.HandleAsync(command, cancellationToken);
+        if (request.Async && result.IsSuccess)
+        {
+            return Accepted($"/api/v1/candidates/{result.Value.Id}", result.Value);
+        }
         return HandleResult(result);
     }
 

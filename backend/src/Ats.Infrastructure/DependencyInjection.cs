@@ -9,6 +9,8 @@ using Ats.Infrastructure.Services.Pdf;
 using Ats.Infrastructure.Services.Reporting;
 using Ats.Infrastructure.Services.Skills;
 using Ats.Infrastructure.Services.Storage;
+using Ats.Infrastructure.Services.Caching;
+using Ats.Infrastructure.Services.Jobs;
 
 namespace Ats.Infrastructure;
 
@@ -34,9 +36,27 @@ public static class DependencyInjection
 
         // 3. Document Extractor, Storage & Skill Normalizer
         services.AddSingleton<IPdfTextExtractor, PdfPigTextExtractor>();
-        services.AddSingleton<IDocumentStorageService, LocalStorageService>();
+        
+        services.Configure<StorageOptions>(configuration.GetSection(StorageOptions.SectionName));
+        var storageProvider = configuration[$"{StorageOptions.SectionName}:Provider"] ?? "Local";
+        if (string.Equals(storageProvider, "S3", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IDocumentStorageService, S3StorageService>();
+        }
+        else
+        {
+            services.AddSingleton<IDocumentStorageService, LocalStorageService>();
+        }
+
         services.AddSingleton<IReportDocumentRenderer, ReportDocumentRenderer>();
         services.AddSingleton<ISkillNormalizationService, SkillNormalizationService>();
+        services.AddMemoryCache();
+        services.AddSingleton<ICacheService, MemoryCacheService>();
+
+        // 3.1. Background Processing Queue
+        services.AddSingleton<ChannelBackgroundJobQueue>();
+        services.AddSingleton<IBackgroundJobQueue>(sp => sp.GetRequiredService<ChannelBackgroundJobQueue>());
+        services.AddHostedService<QueuedHostedService>();
 
         // 4. Gemini AI Provider with Resilience
         services.Configure<GeminiOptions>(configuration.GetSection(GeminiOptions.SectionName));

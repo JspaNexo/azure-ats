@@ -85,15 +85,30 @@ public class GetJobPositionsQueryHandler
 {
     private readonly IJobPositionRepository _jobPositionRepository;
     private readonly ICandidateRepository _candidateRepository;
+    private readonly ICacheService? _cacheService;
 
-    public GetJobPositionsQueryHandler(IJobPositionRepository jobPositionRepository, ICandidateRepository candidateRepository)
+    public GetJobPositionsQueryHandler(
+        IJobPositionRepository jobPositionRepository,
+        ICandidateRepository candidateRepository,
+        ICacheService? cacheService = null)
     {
         _jobPositionRepository = jobPositionRepository;
         _candidateRepository = candidateRepository;
+        _cacheService = cacheService;
     }
 
     public async Task<Result<IReadOnlyList<JobPositionDto>>> HandleAsync(GetJobPositionsQuery query, CancellationToken cancellationToken = default)
     {
+        string cacheKey = $"catalog_job_positions_{query.Status ?? "all"}";
+        if (_cacheService != null)
+        {
+            var cached = _cacheService.Get<IReadOnlyList<JobPositionDto>>(cacheKey);
+            if (cached != null)
+            {
+                return Result.Success(cached);
+            }
+        }
+
         var positions = await _jobPositionRepository.GetAllAsync(query.Status, cancellationToken);
         var candidates = await _candidateRepository.GetAllAsync(cancellationToken);
 
@@ -108,7 +123,12 @@ public class GetJobPositionsQueryHandler
             p.Status,
             p.CreatedAtUtc,
             CandidateCount: candidates.Count(c => c.JobPositionId == p.Id || string.Equals(c.TargetRole, p.Title, StringComparison.OrdinalIgnoreCase))
-        )).ToList();
+        )).ToList().AsReadOnly();
+
+        if (_cacheService != null)
+        {
+            _cacheService.Set(cacheKey, (IReadOnlyList<JobPositionDto>)dtos, TimeSpan.FromSeconds(30));
+        }
 
         return Result.Success<IReadOnlyList<JobPositionDto>>(dtos);
     }

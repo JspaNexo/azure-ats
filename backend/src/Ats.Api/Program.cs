@@ -99,8 +99,8 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        db.Database.EnsureCreated();
-        logger.LogInformation("Esquema de base de datos verificado y listo.");
+        db.Database.Migrate();
+        logger.LogInformation("Esquema de base de datos migrado y listo.");
     }
     catch (Exception ex)
     {

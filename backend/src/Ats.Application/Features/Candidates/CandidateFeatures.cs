@@ -411,14 +411,28 @@ public record GetRecruitersQuery;
 public class GetRecruitersQueryHandler
 {
     private readonly ICandidateRepository _candidateRepository;
+    private readonly ICacheService? _cacheService;
 
-    public GetRecruitersQueryHandler(ICandidateRepository candidateRepository)
+    public GetRecruitersQueryHandler(
+        ICandidateRepository candidateRepository,
+        ICacheService? cacheService = null)
     {
         _candidateRepository = candidateRepository;
+        _cacheService = cacheService;
     }
 
     public async Task<Result<IReadOnlyList<RecruiterDto>>> HandleAsync(GetRecruitersQuery query, CancellationToken cancellationToken = default)
     {
+        const string cacheKey = "catalog_recruiters";
+        if (_cacheService != null)
+        {
+            var cached = _cacheService.Get<IReadOnlyList<RecruiterDto>>(cacheKey);
+            if (cached != null)
+            {
+                return Result.Success(cached);
+            }
+        }
+
         var candidates = await _candidateRepository.GetAllAsync(cancellationToken);
 
         var recruiters = new List<RecruiterDto>
@@ -427,7 +441,12 @@ public class GetRecruitersQueryHandler
                 candidates.Count(c => c.AssignedRecruiterId == "carlos.mendoza")),
             new("laura.sanchez", "Laura Sánchez", "laura.sanchez@empresa.com", "Recruiter",
                 candidates.Count(c => c.AssignedRecruiterId == "laura.sanchez"))
-        };
+        }.AsReadOnly();
+
+        if (_cacheService != null)
+        {
+            _cacheService.Set(cacheKey, (IReadOnlyList<RecruiterDto>)recruiters, TimeSpan.FromSeconds(30));
+        }
 
         return Result.Success<IReadOnlyList<RecruiterDto>>(recruiters);
     }

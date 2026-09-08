@@ -1,4 +1,4 @@
-﻿# ==============================================================================
+# ==============================================================================
 # ATS TalentIQ - Git Ignore Policy
 # ==============================================================================
 
@@ -39,9 +39,9 @@ dist-ssr/
 .vite/
 
 # 4. Storage & Runtime Uploaded Files
-Storage/
-backend/Storage/
-/Storage/
+/storage/
+/backend/storage/
+/backend/src/Ats.Api/storage/
 *.pdf
 !backend/tests/**/*.pdf
 

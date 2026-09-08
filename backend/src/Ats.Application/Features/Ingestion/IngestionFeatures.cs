@@ -25,7 +25,8 @@ public record IngestCandidateCommand(
     int Conscientiousness,
     string? PrimaryStyle,
     string? TargetRole = null,
-    Guid? JobPositionId = null);
+    Guid? JobPositionId = null,
+    bool Asynchronous = false);
 
 public class IngestCandidateCommandValidator : AbstractValidator<IngestCandidateCommand>
 {
@@ -70,6 +71,7 @@ public class IngestCandidateCommandHandler
     private readonly GetCandidateByIdQueryHandler _getCandidateByIdHandler;
     private readonly ICandidateRepository _candidateRepository;
     private readonly IJobPositionRepository _jobPositionRepository;
+    private readonly IBackgroundJobQueue? _backgroundJobQueue;
 
     public IngestCandidateCommandHandler(
         RegisterCandidateCommandHandler registerHandler,
@@ -80,7 +82,8 @@ public class IngestCandidateCommandHandler
         GenerateInterviewReportCommandHandler generateReportHandler,
         GetCandidateByIdQueryHandler getCandidateByIdHandler,
         ICandidateRepository candidateRepository,
-        IJobPositionRepository jobPositionRepository)
+        IJobPositionRepository jobPositionRepository,
+        IBackgroundJobQueue? backgroundJobQueue = null)
     {
         _registerHandler = registerHandler;
         _uploadCvHandler = uploadCvHandler;
@@ -91,6 +94,7 @@ public class IngestCandidateCommandHandler
         _getCandidateByIdHandler = getCandidateByIdHandler;
         _candidateRepository = candidateRepository;
         _jobPositionRepository = jobPositionRepository;
+        _backgroundJobQueue = backgroundJobQueue;
     }
 
     public async Task<Result<CandidateDto>> HandleAsync(IngestCandidateCommand command, CancellationToken cancellationToken = default)
@@ -169,6 +173,30 @@ public class IngestCandidateCommandHandler
         }
 
         var discResultId = discResult.Value;
+
+        if (command.Asynchronous && _backgroundJobQueue != null)
+        {
+            _backgroundJobQueue.Enqueue(async (sp, ct) =>
+            {
+                var cvHandler = (ProcessCvAnalysisCommandHandler)sp.GetService(typeof(ProcessCvAnalysisCommandHandler))!;
+                var discHandler = (ProcessDiscInterpretationCommandHandler)sp.GetService(typeof(ProcessDiscInterpretationCommandHandler))!;
+                var reportHandler = (GenerateInterviewReportCommandHandler)sp.GetService(typeof(GenerateInterviewReportCommandHandler))!;
+
+                await cvHandler.HandleAsync(
+                    new ProcessCvAnalysisCommand(candidateId, documentId, Guid.NewGuid(), correlationId),
+                    ct);
+
+                await discHandler.HandleAsync(
+                    new ProcessDiscInterpretationCommand(candidateId, discResultId, Guid.NewGuid(), correlationId),
+                    ct);
+
+                await reportHandler.HandleAsync(
+                    new GenerateInterviewReportCommand(candidateId, Guid.NewGuid(), correlationId),
+                    ct);
+            });
+
+            return await _getCandidateByIdHandler.HandleAsync(new GetCandidateByIdQuery(candidateId), cancellationToken);
+        }
 
         // 4. Process CV Analysis with Gemini AI
         var cvAnalysisResult = await _processCvHandler.HandleAsync(
