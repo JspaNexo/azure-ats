@@ -466,12 +466,7 @@ public class GeminiAiProvider : ICvAnalyzer, IDiscInterpreter, IInterviewQuestio
         CancellationToken cancellationToken,
         object? responseSchema = null) where T : class
     {
-        // If ApiKey is not configured (e.g. initial dev setup), return a mocked high-quality fallback
-        if (string.IsNullOrWhiteSpace(_options.ApiKey))
-        {
-            _logger.LogWarning("Gemini API Key no configurada. Generando respuesta simulada para desarrollo.");
-            return Result.Success(GenerateMockData<T>());
-        }
+
 
         var candidateModels = new List<string>();
         if (!string.IsNullOrWhiteSpace(_options.Model))
@@ -714,4 +709,5 @@ public class GeminiAiProvider : ICvAnalyzer, IDiscInterpreter, IInterviewQuestio
         throw new NotSupportedException($"Tipo {typeof(T).Name} no soportado para datos simulados.");
     }
 }
+
 

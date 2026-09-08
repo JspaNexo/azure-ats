@@ -227,3 +227,58 @@ public class GetInterviewReportQueryHandler
     }
 }
 
+
+public record GetReportPdfQuery(Guid CandidateId);
+
+public class GetReportPdfQueryHandler
+{
+    private readonly IDocumentStorageService _storageService;
+    private readonly IInterviewReportRepository _reportRepository;
+    private readonly IReportDocumentRenderer _documentRenderer;
+
+    public GetReportPdfQueryHandler(
+        IDocumentStorageService storageService,
+        IInterviewReportRepository reportRepository,
+        IReportDocumentRenderer documentRenderer)
+    {
+        _storageService = storageService;
+        _reportRepository = reportRepository;
+        _documentRenderer = documentRenderer;
+    }
+
+    public async Task<Result<byte[]>> HandleAsync(GetReportPdfQuery query, CancellationToken cancellationToken = default)
+    {
+        var report = await _reportRepository.GetByCandidateIdAsync(query.CandidateId, cancellationToken);
+        if (report is null)
+        {
+            return Result.Failure<byte[]>(Error.NotFound("Report.NotFound", "No se ha generado un informe preentrevista para este candidato."));
+        }
+
+        if (!string.IsNullOrWhiteSpace(report.FileUrl))
+        {
+            var existingStream = await _storageService.GetFileAsync(report.FileUrl, cancellationToken);
+            if (existingStream is not null)
+            {
+                using var memoryStream = new MemoryStream();
+                await existingStream.CopyToAsync(memoryStream, cancellationToken);
+                return Result<byte[]>.Success(memoryStream.ToArray());
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(report.ReportContentJson))
+        {
+            var dto = JsonSerializer.Deserialize<InterviewReportDto>(report.ReportContentJson);
+            if (dto is not null)
+            {
+                var renderResult = await _documentRenderer.RenderReportPdfAsync(dto, cancellationToken);
+                if (renderResult.IsSuccess && renderResult.Value.Length > 0)
+                {
+                    return Result<byte[]>.Success(renderResult.Value);
+                }
+            }
+        }
+
+        return Result.Failure<byte[]>(Error.Failure("Report.RenderFailed", "No se pudo generar el documento PDF del informe."));
+    }
+}
+

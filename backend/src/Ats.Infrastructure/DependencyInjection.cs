@@ -52,9 +52,19 @@ public static class DependencyInjection
             options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(90);
         });
 
-        services.AddScoped<ICvAnalyzer>(sp => sp.GetRequiredService<GeminiAiProvider>());
-        services.AddScoped<IDiscInterpreter>(sp => sp.GetRequiredService<GeminiAiProvider>());
-        services.AddScoped<IInterviewQuestionGenerator>(sp => sp.GetRequiredService<GeminiAiProvider>());
+        if (string.IsNullOrWhiteSpace(configuration["Gemini:ApiKey"]))
+        {
+            services.AddSingleton<MockAiProvider>();
+            services.AddSingleton<ICvAnalyzer>(sp => sp.GetRequiredService<MockAiProvider>());
+            services.AddSingleton<IDiscInterpreter>(sp => sp.GetRequiredService<MockAiProvider>());
+            services.AddSingleton<IInterviewQuestionGenerator>(sp => sp.GetRequiredService<MockAiProvider>());
+        }
+        else
+        {
+            services.AddScoped<ICvAnalyzer>(sp => sp.GetRequiredService<GeminiAiProvider>());
+            services.AddScoped<IDiscInterpreter>(sp => sp.GetRequiredService<GeminiAiProvider>());
+            services.AddScoped<IInterviewQuestionGenerator>(sp => sp.GetRequiredService<GeminiAiProvider>());
+        }
 
         return services;
     }
