@@ -7,6 +7,7 @@ namespace Ats.Application.Common.Interfaces;
 public interface ICvAnalyzer
 {
     Task<Result<CvAnalysisDto>> AnalyzeCvTextAsync(string cvText, CancellationToken cancellationToken = default);
+    Task<Result<CvAnalysisDto>> AnalyzeCvFromPdfAsync(Stream pdfStream, string fileName, CancellationToken cancellationToken = default);
 }
 
 public interface IDiscInterpreter
