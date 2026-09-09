@@ -31,12 +31,15 @@ backend/
 │   │       ├── Scoring/            # JobFitScoringService (calce determinista de puesto y habilidades)
 │   │       ├── CvProcessing/       # ProcessCvAnalysisCommandHandler
 │   │       ├── Disc/               # ProcessDiscInterpretationCommandHandler
+│   │       ├── Documents/          # GetCandidateCvDocumentQueryHandler (streaming binario seguro)
 │   │       └── Reports/            # GenerateInterviewReportCommandHandler y GetReportPdfQueryHandler
 │   │
 │   ├── Ats.Infrastructure/         # Implementacion de adaptadores, persistencia y servicios externos
 │   │   ├── Persistence/            # ApplicationDbContext, migraciones formales y repositorios EF Core
 │   │   │   ├── Configurations/     # Mapeo Fluent API con PostgreSQL
 │   │   │   ├── Migrations/         # Migraciones formales EF Core (InitialCreate)
+│   │   │   ├── Configurations/     # Mapeo Fluent API con PostgreSQL (incluyendo jsonb para FeedbackJson)
+│   │   │   ├── Migrations/         # Migraciones formales EF Core
 │   │   │   └── Repositories/       # CandidateRepository, JobPositionRepository, etc. (con metodos por lote)
 │   │   └── Services/
 │   │       ├── Ai/                 # GeminiAiProvider (resiliencia multi-modelo) y MockAiProvider
@@ -49,6 +52,7 @@ backend/
 │   │
 │   └── Ats.Api/                    # Capa de presentacion, endpoints REST y middlewares
 │       ├── Controllers/            # CandidatesController, JobPositionsController, IngestionController, ReportsController
+│       ├── Controllers/            # CandidatesController, PositionsController, IngestionController, ReportsController, DocumentsController
 │       ├── Middlewares/            # GlobalExceptionHandlerMiddleware (ProblemDetails RFC 7807)
 │       └── Program.cs              # Configuracion de DI, Keycloak JWT, auto-migracion DB y pipeline HTTP
 │
@@ -61,8 +65,10 @@ backend/
 ---
 
 ## 2. Modelado de Base de Datos y Migraciones
+## 2. Modelado de Base de Datos y Scripts de Inicializacion
 
 La base de datos se inicializa y actualiza secuencialmente a traves de los scripts situados en `database/init/`:
+La base de datos PostgreSQL 16 se inicializa de forma declarativa y estructurada a traves de los scripts consolidados en `database/init/`:
 
 1. **`01-init-schema.sql`:** Creacion de tablas base (`candidates`, `cv_analyses`, `disc_interpretations`, `interview_reports`, `processing_jobs`).
 2. **`02-seed-realistic-data.sql`:** Insercion de postulantes representativos para pruebas locales.
@@ -70,6 +76,9 @@ La base de datos se inicializa y actualiza secuencialmente a traves de los scrip
 4. **`04-add-recruiter-assignment.sql`:** Soporte para delegacion de evaluadores (`assigned_recruiter_id`, `assigned_recruiter_name`).
 5. **`05-add-interview-decision.sql`:** Registro del veredicto oficial (`interview_decision`, `interview_notes`, `evaluated_at`).
 6. **`06-create-job-positions.sql`:** Creacion de la tabla `job_positions` y adicion de la llave foranea `job_position_id` en `candidates`.
+1. **`00-create-keycloak-db.sql`:** Crea la base de datos `keycloak_db` aislando completamente los esquemas de identidad y roles de Keycloak.
+2. **`01-schema.sql`:** DDL unificado con extensiones UUID, tablas principales (`candidates`, `job_positions`, `cv_documents`, `candidate_cv_analyses`, `candidate_disc_results`, `candidate_disc_interpretations`, `candidate_assessments`, `candidate_assessment_interpretations`, `candidate_interview_reports`, `processing_jobs`), llaves foraneas con cascadas controladas e indices relacionales optimizados.
+3. **`02-seed-data.sql`:** DML unificado en codificacion nativa UTF-8 que puebla vacantes formales, candidatos y expedientes completos estructurados segun el esquema JSON de Gemini para pruebas locales inmediatas.
 
 ---
 
@@ -98,6 +107,8 @@ La base de datos se inicializa y actualiza secuencialmente a traves de los scrip
 
 ### 3.6 Documentos y Salud (`/api/v1/documents`, `/health`)
 - **`GET /api/v1/documents/{id}/download`**: Descarga segura del archivo PDF original o reporte generado.
+- **`GET /api/v1/documents/cv/{candidateId}`**: Transmision en streaming binario del archivo de curriculum original en PDF con cabecera `Content-Disposition: inline` para previsualizacion directa interactiva en la web. (Autorizado: `ats_admin`, `ats_recruiter`).
+- **`GET /api/v1/documents/{id}/download`**: Descarga directa y segura del archivo binario.
 - **`GET /health`**: Sondeo de disponibilidad del servicio para balanceadores de carga y healthchecks de Docker.
 
 ---
@@ -109,6 +120,7 @@ La base de datos se inicializa y actualiza secuencialmente a traves de los scrip
    - Confinamiento con `systemInstruction` y delimitacion XML `<untrusted_applicant_cv>`.
    - Verificacion de citas textuales de competencias (*Grounding Check*).
    - Human-in-the-loop: alertas de integridad curricular en frontend.
+   - Human-in-the-loop: alertas de integridad curricular en frontend y rol utilitario sin decisiones autonomas.
 
 2. **Defensa contra Path Traversal:**
    - [`LocalStorageService.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Infrastructure/Services/Storage/LocalStorageService.cs) normaliza todas las rutas con `Path.GetFullPath()` y verifica que pertenezcan estrictamente al subdirectorio base de almacenamiento antes de realizar lecturas o escrituras.
@@ -127,12 +139,17 @@ La base de datos se inicializa y actualiza secuencialmente a traves de los scrip
 ## 5. Pruebas y Validacion
 
 Para ejecutar el conjunto completo de 69 pruebas automatizadas bajo la solucion unificada:
+Para ejecutar el conjunto completo de **80 pruebas automatizadas** bajo la solucion unificada:
 
 ```bash
 # Ejecutar todas las pruebas de la solucion (Domain, Application, Architecture, Tests)
 dotnet test Ats.slnx
 
 # Ejecutar proyecto especifico con reporte detallado
+# Ejecutar proyectos individuales
+dotnet test tests/Ats.Domain.UnitTests/Ats.Domain.UnitTests.csproj
+dotnet test tests/Ats.Application.UnitTests/Ats.Application.UnitTests.csproj
+dotnet test tests/Ats.ArchitectureTests/Ats.ArchitectureTests.csproj
 dotnet test backend/tests/Ats.Tests/Ats.Tests.csproj --logger "console;verbosity=detailed"
 ```
 

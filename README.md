@@ -21,8 +21,10 @@ ats/
 │   ├── src/
 │   │   ├── Ats.Domain/                 # Entidades de dominio (Candidate, JobPosition, etc.), Enums, ValueObjects y Eventos
 │   │   ├── Ats.Application/            # Casos de uso CQRS (Candidates, JobPositions, Ingestion, Reports), DTOs e Interfaces
+│   │   ├── Ats.Application/            # Casos de uso CQRS (Candidates, JobPositions, Ingestion, Reports, Documents), DTOs e Interfaces
 │   │   ├── Ats.Infrastructure/         # EF Core, Migraciones, Gemini AI, MockAiProvider, Storage (Local/S3), Caching y Jobs
 │   │   └── Ats.Api/                    # Controladores REST, Autenticacion JWT/Keycloak, GlobalExceptionHandler y Swagger
+│   │   └── Ats.Api/                    # Controladores REST (Candidates, Positions, Ingestion, Reports, Documents), Auth JWT/Keycloak
 │   ├── tests/
 │   │   └── Ats.Tests/                  # Pruebas unitarias de seguridad, sanitizacion, scoring de calce y habilidades
 │   ├── Dockerfile                      # Multi-stage Docker build (.NET 10 SDK + ASP.NET Core Runtime)
@@ -31,10 +33,15 @@ ats/
 │   ├── Ats.Domain.UnitTests/           # Pruebas unitarias del modelo de dominio y Value Objects
 │   ├── Ats.Application.UnitTests/      # Pruebas unitarias de handlers CQRS y logica de aplicacion
 │   └── Ats.ArchitectureTests/          # Pruebas de cumplimiento de arquitectura limpia (dependencias entre capas)
+│   ├── Ats.Domain.UnitTests/           # Pruebas unitarias del modelo de dominio y Value Objects (16 pruebas)
+│   ├── Ats.Application.UnitTests/      # Pruebas unitarias de handlers CQRS y logica de aplicacion (19 pruebas)
+│   └── Ats.ArchitectureTests/          # Pruebas de cumplimiento de arquitectura limpia (6 pruebas)
 ├── frontend/
 │   ├── src/
 │   │   ├── components/                 # Componentes ejecutivos (dashboard, stats, modales)
 │   │   │   └── evaluator/              # Pestanas modulares del expediente (CvAnalysis, DISC, STAR, Dictamen, PDF)
+│   │   ├── components/                 # Componentes ejecutivos (dashboard, stats, modales, visor interactivo PdfViewerModal)
+│   │   │   └── evaluator/              # Pestanas modulares del expediente (CvAnalysis & PDF, DISC, STAR, Dictamen, Informe)
 │   │   ├── context/                    # Estado de sesion Keycloak (AuthContext, proteccion de rutas y tokens)
 │   │   ├── services/                   # Clientes de comunicacion API REST (api.ts desacoplado via VITE_API_BASE_URL)
 │   │   └── types/                      # Contratos e interfaces TypeScript
@@ -47,6 +54,7 @@ ats/
 │   └── themes/talentiq/                # Tema visual corporativo personalizado y responsivo para login
 ├── database/
 │   ├── init/                           # Scripts SQL de migracion inicial (00 al 06-job-positions)
+│   ├── init/                           # Scripts SQL unificados y consolidados (00-create-keycloak-db, 01-schema, 02-seed-data)
 │   └── README.md                       # Documentacion de persistencia relacional
 ├── automation/
 │   ├── n8n/workflows/                  # Definicion de flujos declarativos n8n para procesamiento asincrono
@@ -128,6 +136,7 @@ El sistema valida criptograficamente los tokens JWT emitidos por Keycloak en cad
 | Consultar vacantes activas | Si | Si | `[Authorize(Roles = "ats_admin,ats_recruiter")]` |
 | Cambiar estado de una vacante | Si | No | `[Authorize(Roles = "ats_admin")]` |
 | Cargar CV y evaluar con IA en tiempo real | Si | Si | `[Authorize(Roles = "ats_admin,ats_recruiter")]` |
+| Visualizar CV original en PDF (Web/Stream) | Si | Si | `[Authorize(Roles = "ats_admin,ats_recruiter")]` |
 | Asignar/reasignar evaluador a candidato | Si | No | `[Authorize(Roles = "ats_admin")]` |
 | Consultar expediente completo (CV, DISC, STAR) | Si | Si | `[Authorize(Roles = "ats_admin,ats_recruiter")]` |
 | Emitir dictamen oficial de entrevista | Si | Si | `[Authorize(Roles = "ats_admin,ats_recruiter")]` |
@@ -144,6 +153,7 @@ El sistema valida criptograficamente los tokens JWT emitidos por Keycloak en cad
 - Modal responsivo corporativo para alta de vacantes disponible exclusivamente para usuarios con rol `ats_admin`.
 
 ### 5.2 Ingesta Directa de CV y Evaluacion Asistida por IA en Tiempo Real
+### 5.2 Ingesta Directa de CV y Asistencia de IA en Tiempo Real
 - Modal interactivo para la carga de curriculum en formato PDF con zona drag-and-drop y validacion de tamano (maximo 15 MB).
 - Selector de vacante activa asociada al proceso de postulacion.
 - Controles deslizantes (sliders) interactivos para capturar las 4 dimensiones conductuales DISC (Dominancia, Influencia, Estabilidad, Cumplimiento) con clasificacion automatica del estilo primario.
@@ -155,11 +165,19 @@ El sistema valida criptograficamente los tokens JWT emitidos por Keycloak en cad
   5. Generacion del reporte consolidado y vinculacion automatica al dashboard.
 
 ### 5.3 Asignacion y Delegacion de Expedientes
+### 5.3 Visor Web Interactivo de CV Original y Enfoque Ético Human-in-the-Loop
+- **Visor Web de CV en PDF:** Streaming autenticado mediante `GET /api/v1/documents/cv/{candidateId}` con `Content-Disposition: inline`, permitiendo examinar el currículum original directamente en el navegador sin descargas obligatorias.
+- **Alternancia Fluida de Vistas:** Pestaña modular *"1. Síntesis & CV Original"* con selector instantáneo entre la síntesis estructurada y el visor del PDF original, optimizado con retención en memoria mediante `useRef` para evitar revocación prematura de Blob URLs.
+- **Acceso Rápido y Pantalla Completa:** Botón "Ver CV" directo desde las filas del dashboard y modal interactivo `PdfViewerModal` con controles de apertura en nueva pestaña y descarga voluntaria.
+- **Supervisión Humana Soberana (*Human-in-the-Loop*):** La IA actúa estrictamente como asistente utilitario de estructuración fáctica documental. No califica, no juzga ni descarta candidatos. Las insignias reflejan *"Cotejo de Requisitos Detectados en el CV"* y el dictamen oficial es responsabilidad exclusiva del profesional de RRHH.
+
+### 5.4 Asignacion y Delegacion de Expedientes
 - Permite a los administradores delegar expedientes individuales a reclutadores especificos (`carlos.mendoza`, `laura.sanchez`).
 - Vista personalizada para reclutadores que prioriza sus expedientes asignados.
 - Notificaciones claras en tarjetas y expediente con el reclutador a cargo.
 
 ### 5.4 Diseno Web Responsivo y Accesible (Mobile-First)
+### 5.5 Diseno Web Responsivo y Accesible (Mobile-First)
 - **Barra de navegacion superior adaptativa:** Menu hamburguesa tactil en pantallas moviles (< 640px) y barra expandida en escritorio (>= 640px).
 - **Tarjetas de metricas fluidas:** 1 columna en moviles pequenos, 2 en tabletas y 4 en escritorios.
 - **Ventanas modales auto-ajustables:** Contenedores `h-[95vh] sm:h-auto sm:max-h-[90vh]` con scroll vertical independiente para evitar desbordamientos en cualquier dispositivo.
@@ -232,6 +250,7 @@ docker compose down
 ## 8. Pruebas Automatizadas
 
 El proyecto incluye una suite exhaustiva de 69 pruebas automatizadas distribuidas en cuatro proyectos bajo `Ats.slnx`:
+El proyecto incluye una suite exhaustiva de 80 pruebas automatizadas distribuidas en cuatro proyectos bajo `Ats.slnx`:
 
 ```bash
 # Ejecutar la totalidad de las pruebas en la solucion
@@ -248,6 +267,9 @@ dotnet test backend/tests/Ats.Tests/Ats.Tests.csproj
 - **Ats.Domain.UnitTests (11 pruebas):** Validacion de invariantes en entidades de dominio (`Candidate`, `JobPosition`), creacion de `CandidateEmail`, reglas de transicion de estados y eventos de dominio.
 - **Ats.Application.UnitTests (14 pruebas):** Pruebas de handlers CQRS (`IngestCandidateCommandHandler`, `ProcessCvAnalysisCommandHandler`), validadores FluentValidation y asignacion de reclutadores.
 - **Ats.ArchitectureTests (5 pruebas):** Verificacion estricta de fronteras de Clean Architecture (el dominio no depende de infraestructura, la aplicacion no referencia API, encapsulamiento de contratos).
+- **Ats.Domain.UnitTests (16 pruebas):** Validacion de invariantes en entidades de dominio (`Candidate`, `JobPosition`), creacion de `CandidateEmail`, reglas de transicion de estados, eventos de dominio y evaluaciones psicométricas.
+- **Ats.Application.UnitTests (19 pruebas):** Pruebas de handlers CQRS (`IngestCandidateCommandHandler`, `ProcessCvAnalysisCommandHandler`, `GetCandidateCvDocumentQueryHandler`), validadores FluentValidation y asignacion de reclutadores.
+- **Ats.ArchitectureTests (6 pruebas):** Verificacion estricta de fronteras de Clean Architecture (el dominio no depende de infraestructura, la aplicacion no referencia API, encapsulamiento de contratos e independencia de capas).
 - **Ats.Tests (39 pruebas):** Deteccion heuristica y sanitizacion contra Prompt Injection, normalizacion de habilidades tecnicas multi-area con catalogo semantico, calculo determinista de calce con el puesto (`JobFitScoringService`) y verificacion de consistencia curricular.
 
 ---

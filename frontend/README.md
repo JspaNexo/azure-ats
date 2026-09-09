@@ -38,6 +38,16 @@ Modulo de interfaz de usuario web para el sistema de seleccion de talento Talent
    - *3. Preguntas STAR:* Guia situacional de indagacion profesional, tecnica y conductual.
    - *4. Dictamen:* Formulario de resolucion oficial (Aprobado, En Reserva, Descartado) con notas confidenciales.
    - *5. Expediente PDF:* Previsualizacion y descarga directa del documento ejecutivo oficial.
+4. **Modal Visor de PDF Original (`PdfViewerModal`):**
+   - Visor web interactivo a pantalla completa para examinar el documento PDF original del postulante, con controles de nueva pestaña y descarga voluntaria.
+5. **Expediente Integral Modular de 5 Pestañas (`EvaluatorReviewModal`):**
+   - *1. Síntesis & CV Original (`CvAnalysisTab`):* Selector interactivo para alternar entre "Síntesis Asistida" y "Ver CV Original (PDF)" en visor embebido. Implementado con retención de Blob URL en `useRef` para permitir alternancia continua e instantánea sin peticiones redundantes ni errores de revocación. Incluye banner ético de supervisión humana (*Human-in-the-Loop*).
+   - *2. Perfil Psicométrico (`DiscProfileTab`):* Gráfico Radar hexagonal interactivo, descriptores conductuales, fortalezas y estilo predominante.
+   - *3. Guía STAR (`InterviewGuideTab`):* Guía situacional de indagacion estructurada bajo metodología STAR (preguntas profesionales, técnicas y conductuales).
+   - *4. Dictamen RRHH (`DecisionTab`):* Formulario oficial de resolución soberana de Recursos Humanos (Aprobado, En Reserva, No Seleccionado) con notas confidenciales.
+   - *5. Expediente PDF (`PdfReportTab`):* Previsualización web integrada del informe pre-entrevista y descarga voluntaria en PDF.
+6. **Acción Rápida en Dashboard:**
+   - Botón directo "Ver CV" en cada tarjeta/fila para abrir el expediente o visor de PDF original en un solo clic.
 
 ### 1.3 Diseno Responsivo y Ergonomia Visual (Mobile-First)
 - **Barra de Navegacion Adaptativa (`Navbar`):** Menu hamburguesa tactil con animacion suave en pantallas moviles (< 640px) y boton de acceso rapido ("Cargar").
@@ -59,13 +69,18 @@ frontend/
 │   │   ├── QuickStartGuide.tsx            # Guia rapida para evaluadores con colapso responsivo
 │   │   ├── EvaluatorCandidateDashboard.tsx# Buscador, filtros por puesto/estado y tarjetas de candidatos
 │   │   ├── EvaluatorReviewModal.tsx       # Contenedor modular del expediente integral
+│   │   ├── PdfViewerModal.tsx             # Modal interactivo para visualizacion web de PDF original
 │   │   ├── evaluator/                     # Pestanas desacopladas del expediente:
 │   │   │   ├── CvAnalysisTab.tsx          # Resumen profesional, experiencia, formacion y skills
+│   │   │   ├── CvAnalysisTab.tsx          # Sintesis asistida, visor PDF original y banner etico
 │   │   │   ├── DiscProfileTab.tsx         # Radar SVG y descriptores conductuales
 │   │   │   ├── InterviewGuideTab.tsx      # Guia de indagacion situacional STAR
 │   │   │   ├── DecisionTab.tsx            # Formulario de dictamen (Aprobado, En Reserva, Descartado)
 │   │   │   └── PdfReportTab.tsx           # Visor y descarga del informe ejecutivo PDF
 │   │   ├── UploadCandidateModal.tsx       # Carga directa de CV, sliders DISC y evaluacion IA en vivo
+│   │   │   ├── DecisionTab.tsx            # Formulario de dictamen oficial soberano de RRHH
+│   │   │   └── PdfReportTab.tsx           # Visor interactivo y descarga de informe ejecutivo PDF
+│   │   ├── UploadCandidateModal.tsx       # Carga directa de CV, sliders DISC y generacion asistida en vivo
 │   │   ├── CreateJobPositionModal.tsx     # Formulario de alta de vacantes formales
 │   │   ├── AssignRecruiterModal.tsx       # Modal de delegacion de candidatos a evaluadores
 │   │   └── RadarChart.tsx                 # Grafico de radar SVG escalable y responsivo

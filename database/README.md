@@ -21,6 +21,8 @@ Cuando el contenedor `ats_postgres` arranca por primera vez, ejecuta automaticam
 | **`04-add-evaluator-columns.sql`** | Dictamen de evaluacion | Incorpora columnas para resolucion del comite: `interview_decision`, `interview_notes`, `evaluated_at`. |
 | **`05-add-assignment-columns.sql`** | Delegacion de reclutadores | Incorpora campos de asignacion: `assigned_recruiter_id`, `assigned_recruiter_name`. |
 | **`06-create-job-positions.sql`** | Catalogo de vacantes | Crea la tabla `job_positions` y anade la columna `job_position_id` indexada en `candidates` con regla `ON DELETE SET NULL`. |
+| **`01-schema.sql`** | Esquema DDL Consolidado del ATS | Define extensiones UUID, tablas nucleares (`candidates`, `job_positions`, `cv_documents`, `candidate_cv_analyses`, `candidate_disc_results`, `candidate_disc_interpretations`, `candidate_assessments`, `candidate_assessment_interpretations`, `candidate_interview_reports`, `processing_jobs`), llaves foráneas indexadas y restricciones de integridad referencial. |
+| **`02-seed-data.sql`** | Datos Semilla DML (Nativo UTF-8) | Carga perfiles representativos completos, vacantes formales activas, evaluaciones curriculares estructuradas en JSONB, mediciones conductuales y guías de preguntas STAR para pruebas locales inmediatas. |
 
 ---
 

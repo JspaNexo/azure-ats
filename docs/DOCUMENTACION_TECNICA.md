@@ -5,6 +5,8 @@
 - **Proyecto:** ATS TalentIQ (Applicant Tracking System)
 - **Version:** 2.6
 - **Fecha de emision:** 8 de septiembre de 2026
+- **Version:** 2.8
+- **Fecha de emision:** 9 de septiembre de 2026
 - **Estado del documento:** Aprobado e Implementado
 - **Ambiente:** Desarrollo / Preproduccion (Local Contenerizado)
 - **Clasificacion:** Documento Tecnico de Arquitectura de Software
@@ -14,6 +16,7 @@
 ## 1. Resumen o Introduccion
 
 ATS TalentIQ es una plataforma empresarial contenerizada de seleccion de talento diseñada para gestionar de forma integral el ciclo de admision de postulantes, la gestion formal de vacantes laborales y la evaluacion automatizada curricular y psicometrica.
+ATS TalentIQ es una plataforma empresarial contenerizada de seleccion de talento diseñada para gestionar de forma integral el ciclo de admision de postulantes, la gestion formal de vacantes laborales y la evaluacion automatizada curricular y psicometrica bajo supervision humana soberana (*Human-in-the-Loop*).
 
 El sistema articula modelos avanzados de Inteligencia Artificial Generativa (Google Gemini AI bajo el modelo de alta eficiencia `gemini-flash-lite-latest` con contingencia multi-modelo y proveedor `MockAiProvider` para entornos aislados), evaluacion conductual fundamentada en la metodologia psicometrica DISC (Dominancia, Influencia, Estabilidad, Cumplimiento) y generacion automatizada de guias de indagacion situacional estructuradas bajo metodologia STAR (Situacion, Tarea, Accion, Resultado).
 
@@ -25,6 +28,8 @@ La solucion ha sido construida siguiendo los principios de la Arquitectura Limpi
 3. **Independencia de Presentacion:** La API REST expone contratos JSON estrictos y versionados (`/api/v1`), consumidos por una consola web ejecutiva en React 19 desacoplada a traves de variables de entorno (`VITE_API_BASE_URL`).
 4. **Resiliencia y Procesamiento en Segundo Plano:** El procesamiento curricular pesado puede ejecutarse en tiempo real de forma sincronica o delegarse a la cola en segundo plano desacoplada `IBackgroundJobQueue` (basada en canales en memoria `System.Threading.Channels` y `QueuedHostedService`), garantizando alta disponibilidad ante picos de demanda.
 5. **Seguridad Defensiva Multicapa:** Blindaje heuristico contra inyeccion de instrucciones (*Prompt Injection*), verificacion automatica de citas textuales de competencias (*Evidence Grounding Check*), prevencion de *Path Traversal* y comparacion en tiempo constante de firmas criptograficas HMAC SHA-256 (`CryptographicOperations.FixedTimeEquals`).
+6. **Supervision Humana Soberana y Etica de la IA (Human-in-the-Loop):** La Inteligencia Artificial opera exclusivamente como herramienta utilitaria de asistencia y estructuracion fáctica para Recursos Humanos. La IA no califica de forma vinculante ni aprueba o descarta candidatos. El porcentaje visible refleja un "Cotejo de Requisitos Detectados en el CV", reservando la toma de decisiones y el dictamen oficial al criterio soberano de los evaluadores humanos.
+7. **Inspeccion Documental Interactiva (Visor Web de CV):** Incorporacion de visor interactivo web del currículum original en PDF transmitido via streaming seguro autenticado (`GET /api/v1/documents/cv/{candidateId}`). Permite a los reclutadores contrastar la síntesis asistida contra el documento original sin requerir descargas locales, soportando alternancia fluida de vistas y persistencia en memoria mediante `useRef`.
 
 ---
 
@@ -217,6 +222,7 @@ flowchart TD
         direction TB
         IngCtrl["IngestionController<br/>POST /api/v1/ingestion/evaluate"]:::api
         CandCtrl["CandidatesController<br/>GET /api/v1/candidates<br/>POST /api/v1/candidates/{id}/decision"]:::api
+        DocCtrl["DocumentsController<br/>GET /api/v1/documents/cv/{id}"]:::api
         JobCtrl["JobPositionsController<br/>GET, POST /api/v1/positions"]:::api
         RepCtrl["ReportsController<br/>GET /api/v1/reports/{id}/pdf"]:::api
         WhCtrl["WebhooksController<br/>POST /api/v1/webhooks/*"]:::api
@@ -227,6 +233,7 @@ flowchart TD
         direction TB
         HIngest["IngestCandidateCommandHandler<br/>Orquestacion de evaluacion integral"]:::app
         HGetCand["GetCandidatesQueryHandler<br/>Consultas por lote optimizadas"]:::app
+        HGetCvDoc["GetCandidateCvDocumentQueryHandler<br/>Streaming de CV original en PDF"]:::app
         HJobFit["JobFitScoringService<br/>Calculo de compatibilidad con vacante"]:::app
         HReportPdf["GetReportPdfQueryHandler<br/>Consolidacion de datos para PDF"]:::app
         HAssign["AssignCandidateCommandHandler<br/>Delegacion de evaluador"]:::app
@@ -263,6 +270,7 @@ flowchart TD
     IngCtrl -->|"Encola (Asincrono)"| JobQueue
     CandCtrl -->|"Consulta"| HGetCand
     CandCtrl -->|"Asigna / Dictamina"| HAssign
+    DocCtrl -->|"Solicita stream"| HGetCvDoc
     RepCtrl -->|"Genera PDF"| HReportPdf
     WhCtrl -->|"Persiste webhook"| AppDb
 
@@ -276,10 +284,12 @@ flowchart TD
 
     HGetCand -->|"Consultas por lote"| AppDb
     HGetCand -->|"Calcula scores"| HJobFit
+    HGetCvDoc -->|"Recupera binario"| StorageSvc
     HReportPdf -->|"Renderiza"| PdfGen
 
     HIngest -.->|"Crea / Modifica"| EntCandidate
     HGetCand -.->|"Mapea a DTOs"| EntCandidate
+    HGetCvDoc -.->|"Coteja documento"| EntCandidate
     HJobFit -.->|"Compara con perfil"| EntJob
 
     AppDb -->|"TCP / Puerto 5432"| Postgres
@@ -602,6 +612,7 @@ sequenceDiagram
 | Asignar evaluador a candidato | Permitido | Denegado | `[Authorize(Roles = "ats_admin")]` |
 | Ver todas las metricas globales | Permitido | Solo asignados | Filtrado por `preferred_username` |
 | Cargar candidatos y evaluar con IA | Permitido | Permitido | `[Authorize(Roles = "ats_admin,ats_recruiter")]` |
+| Visualizar CV original en PDF (Web/Stream) | Permitido | Permitido | `[Authorize(Roles = "ats_admin,ats_recruiter")]` |
 | Emitir dictamen oficial de entrevista | Permitido | Permitido | `[Authorize(Roles = "ats_admin,ats_recruiter")]` |
 | Descargar informe ejecutivo en PDF | Permitido | Permitido | `[Authorize(Roles = "ats_admin,ats_recruiter")]` |
 
@@ -630,6 +641,7 @@ El flujo estandar de liberacion del software se modela en fases automatizadas:
 [ Fase CI: Compilacion y Pruebas ]
    • dotnet build Ats.slnx
    • dotnet test Ats.slnx (69 pruebas automatizadas)
+   • dotnet test Ats.slnx (80 pruebas automatizadas)
    • npm run build (TypeScript estricto en frontend)
        │
        ▼
@@ -652,6 +664,7 @@ El flujo estandar de liberacion del software se modela en fases automatizadas:
 ## 8. Estrategias de Pruebas
 
 El sistema cuenta con una suite integral de **69 pruebas automatizadas** ejecutables mediante un unico comando:
+El sistema cuenta con una suite integral de **80 pruebas automatizadas** ejecutables mediante un unico comando:
 
 ```bash
 dotnet test Ats.slnx
@@ -659,14 +672,19 @@ dotnet test Ats.slnx
 
 ### 8.1 Distribucion de la Suite de Pruebas
 1. **Pruebas de Dominio (`Ats.Domain.UnitTests` - 11 pruebas):**
+1. **Pruebas de Dominio (`Ats.Domain.UnitTests` - 16 pruebas):**
    - Validacion de entidades de dominio (`Candidate`, `JobPosition`, `CandidateEmail`).
    - Reglas de transicion de estados de evaluacion y generacion de eventos de dominio.
 2. **Pruebas de Aplicacion (`Ats.Application.UnitTests` - 14 pruebas):**
    - Verificacion de handlers de ingesta (`IngestCandidateCommandHandler`) y analisis curricular (`ProcessCvAnalysisCommandHandler`).
+2. **Pruebas de Aplicacion (`Ats.Application.UnitTests` - 19 pruebas):**
+   - Verificacion de handlers de ingesta (`IngestCandidateCommandHandler`), analisis curricular (`ProcessCvAnalysisCommandHandler`) y recuperacion de documentos de CV original en streaming binario (`GetCandidateCvDocumentQueryHandler`).
    - Comprobacion de validadores de comando y logica de asignacion de reclutadores.
 3. **Pruebas de Arquitectura Limpia (`Ats.ArchitectureTests` - 5 pruebas):**
+3. **Pruebas de Arquitectura Limpia (`Ats.ArchitectureTests` - 6 pruebas):**
    - Verificacion mediante reflexion de que la capa de Dominio no posea referencias hacia Infraestructura o APIs.
    - Enforzamiento de la regla de dependencias unidireccionales de Clean Architecture.
+   - Enforzamiento estricto de la regla de dependencias unidireccionales de Clean Architecture.
 4. **Pruebas de Seguridad y Scoring (`Ats.Tests` - 39 pruebas):**
    - Deteccion de patrones heuristicos de Prompt Injection (espanol e ingles).
    - Neutralizacion de etiquetas de escape XML y tokens especiales de LLMs.
