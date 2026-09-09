@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ShieldAlert,
   Mail,
@@ -30,38 +30,57 @@ export const CvAnalysisTab: React.FC<CvAnalysisTabProps> = ({
 }) => {
   const cv = candidate.cvAnalysis;
   const [viewMode, setViewMode] = useState<'synthesis' | 'pdf'>('synthesis');
+  const blobUrlRef = useRef<string | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
-  // Carga diferida del PDF solo si el usuario selecciona ver el CV original
+  // Limpieza y revocación segura del blob URL únicamente cuando cambia el candidato o se desmonta
   useEffect(() => {
-    let currentUrl: string | null = null;
+    return () => {
+      if (blobUrlRef.current) {
+        window.URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
+      }
+    };
+  }, [candidate.id]);
 
-    if (viewMode === 'pdf' && !pdfBlobUrl) {
+  // Carga o reutilización del PDF al activar el modo 'pdf'
+  useEffect(() => {
+    let isMounted = true;
+
+    if (viewMode === 'pdf') {
+      // Si ya fue cargado previamente para este candidato, reutilizar el blob URL activo
+      if (blobUrlRef.current) {
+        setPdfBlobUrl(blobUrlRef.current);
+        return;
+      }
+
       setIsLoadingPdf(true);
       setPdfError(null);
 
       api.getCvPdfBlob(candidate.id)
         .then((blob) => {
+          if (!isMounted) return;
           const url = window.URL.createObjectURL(blob);
-          currentUrl = url;
+          blobUrlRef.current = url;
           setPdfBlobUrl(url);
         })
         .catch((err: any) => {
+          if (!isMounted) return;
           setPdfError(err?.message || 'No se pudo cargar el archivo PDF original del postulante.');
         })
         .finally(() => {
-          setIsLoadingPdf(false);
+          if (isMounted) {
+            setIsLoadingPdf(false);
+          }
         });
     }
 
     return () => {
-      if (currentUrl) {
-        window.URL.revokeObjectURL(currentUrl);
-      }
+      isMounted = false;
     };
-  }, [viewMode, candidate.id, pdfBlobUrl]);
+  }, [viewMode, candidate.id]);
 
   const handleDownloadPdf = () => {
     api.downloadOriginalCv(candidate.id, `cv_${candidate.firstName.toLowerCase()}_${candidate.lastName.toLowerCase()}.pdf`);

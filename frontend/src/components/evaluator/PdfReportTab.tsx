@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Loader2,
   Download,
@@ -27,33 +27,40 @@ export const PdfReportTab: React.FC<PdfReportTabProps> = ({
   onPrev,
   onClose,
 }) => {
+  const blobUrlRef = useRef<string | null>(null);
   const [viewMode, setViewMode] = useState<'pdf' | 'summary'>('pdf');
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
 
   useEffect(() => {
-    let currentUrl: string | null = null;
+    let isMounted = true;
     setIsLoadingPdf(true);
     setPdfError(null);
 
     api.getReportPdfBlob(candidate.id)
       .then((blob) => {
+        if (!isMounted) return;
         const url = window.URL.createObjectURL(blob);
-        currentUrl = url;
+        blobUrlRef.current = url;
         setPdfBlobUrl(url);
       })
       .catch((err: any) => {
+        if (!isMounted) return;
         console.error('Error cargando PDF del informe:', err);
         setPdfError(err?.message || 'No se pudo generar o cargar la previsualización del expediente pre-entrevista.');
       })
       .finally(() => {
-        setIsLoadingPdf(false);
+        if (isMounted) {
+          setIsLoadingPdf(false);
+        }
       });
 
     return () => {
-      if (currentUrl) {
-        window.URL.revokeObjectURL(currentUrl);
+      isMounted = false;
+      if (blobUrlRef.current) {
+        window.URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
       }
     };
   }, [candidate.id]);

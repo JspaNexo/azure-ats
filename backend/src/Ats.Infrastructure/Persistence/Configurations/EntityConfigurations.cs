@@ -96,6 +96,10 @@ public class CvAnalysisConfiguration : IEntityTypeConfiguration<CvAnalysis>
         builder.HasKey(a => a.Id);
 
         builder.Property(a => a.AnalysisJson).HasColumnType("jsonb").IsRequired();
+        builder.Property(a => a.FeedbackJson).HasColumnType("jsonb");
+        builder.Property(a => a.ErrorMessage);
+        builder.Property(a => a.CreatedAtUtc).IsRequired();
+        builder.Property(a => a.UpdatedAtUtc);
         builder.Property(a => a.Status).HasConversion<string>().HasMaxLength(30).IsRequired();
         builder.Property(a => a.ProviderName).HasMaxLength(50).IsRequired();
         builder.Property(a => a.ModelName).HasMaxLength(50).IsRequired();
@@ -148,6 +152,8 @@ public class DiscInterpretationConfiguration : IEntityTypeConfiguration<DiscInte
         builder.HasKey(i => i.Id);
 
         builder.Property(i => i.InterpretationJson).HasColumnType("jsonb").IsRequired();
+        builder.Property(i => i.ErrorMessage);
+        builder.Property(i => i.CreatedAtUtc).IsRequired();
         builder.Property(i => i.Status).HasConversion<string>().HasMaxLength(30).IsRequired();
         builder.Property(i => i.ProviderName).HasMaxLength(50).IsRequired();
         builder.Property(i => i.ModelName).HasMaxLength(50).IsRequired();
