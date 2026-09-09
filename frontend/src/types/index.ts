@@ -70,11 +70,28 @@ export interface ProfessionalProfileDto {
   certifications: string[];
 }
 
+export interface AssessmentScoresDto {
+  assessmentType: string;
+  dimensions: Record<string, number>;
+  primaryStyle: string;
+}
+
+export interface AssessmentInterpretationDto {
+  assessmentType?: string;
+  primaryStyle: string;
+  summary: string;
+  strengthsToExplore: string[];
+  pointsToExplore: string[];
+  behavioralQuestionTopics: string[];
+  disclaimer: string;
+}
+
 export interface DiscSummaryDto {
   primaryStyle: string;
   summary: string;
   strengthsToExplore: string[];
   pointsToExplore: string[];
+  evaluationType?: string;
 }
 
 export interface ValidationPointDto {
@@ -123,6 +140,9 @@ export interface Candidate {
   assignedRecruiterEmail?: string | null;
   assignedAtUtc?: string | null;
   jobPositionId?: string | null;
+  assessmentType?: string;
+  assessmentScores?: Record<string, number> | null;
+  assessmentInterpretation?: AssessmentInterpretationDto | null;
 }
 
 export interface JobPosition {

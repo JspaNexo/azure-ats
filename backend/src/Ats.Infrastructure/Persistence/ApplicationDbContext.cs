@@ -12,6 +12,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<CvAnalysis> CvAnalyses => Set<CvAnalysis>();
     public DbSet<DiscResult> DiscResults => Set<DiscResult>();
     public DbSet<DiscInterpretation> DiscInterpretations => Set<DiscInterpretation>();
+    public DbSet<CandidateAssessment> CandidateAssessments => Set<CandidateAssessment>();
+    public DbSet<AssessmentInterpretation> AssessmentInterpretations => Set<AssessmentInterpretation>();
     public DbSet<InterviewReport> InterviewReports => Set<InterviewReport>();
     public DbSet<ProcessingJob> ProcessingJobs => Set<ProcessingJob>();
     public DbSet<JobPosition> JobPositions => Set<JobPosition>();

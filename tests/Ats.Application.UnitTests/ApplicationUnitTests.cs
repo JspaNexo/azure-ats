@@ -3,6 +3,7 @@ using FluentAssertions;
 using NSubstitute;
 using Ats.Application.Common.Interfaces;
 using Ats.Application.DTOs;
+using Ats.Application.Features.Assessments;
 using Ats.Application.Features.Candidates;
 using Ats.Application.Features.Disc;
 using Ats.Application.Features.Reports;
@@ -17,6 +18,7 @@ public class ApplicationUnitTests
 {
     private readonly ICandidateRepository _candidateRepository = Substitute.For<ICandidateRepository>();
     private readonly IDiscRepository _discRepository = Substitute.For<IDiscRepository>();
+    private readonly ICandidateAssessmentRepository _candidateAssessmentRepository = Substitute.For<ICandidateAssessmentRepository>();
     private readonly ICvAnalysisRepository _cvAnalysisRepository = Substitute.For<ICvAnalysisRepository>();
     private readonly IInterviewReportRepository _reportRepository = Substitute.For<IInterviewReportRepository>();
     private readonly IProcessingJobRepository _processingJobRepository = Substitute.For<IProcessingJobRepository>();
@@ -164,6 +166,67 @@ public class ApplicationUnitTests
         result.Value.InterviewGuide.TechnicalQuestions.Should().ContainSingle();
         result.Value.InterviewGuide.BehavioralQuestions.Should().ContainSingle();
         await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SubmitAssessmentResult_WithNonDiscType_ShouldPersistGenericAssessmentAndNotLegacyDisc()
+    {
+        // Arrange
+        var candidateId = Guid.NewGuid();
+        var email = CandidateEmail.Create("maria@example.com").Value;
+        var candidate = Candidate.Create("María", "López", email).Value;
+
+        _candidateRepository.GetByIdAsync(candidateId, Arg.Any<CancellationToken>())
+            .Returns(candidate);
+
+        var handler = new SubmitAssessmentResultCommandHandler(
+            _candidateRepository,
+            _candidateAssessmentRepository,
+            _discRepository,
+            _unitOfWork);
+
+        var dimensions = new Dictionary<string, double>
+        {
+            { "Openness", 85.0 },
+            { "Conscientiousness", 90.0 }
+        };
+
+        var command = new SubmitAssessmentResultCommand(candidateId, "BigFive", dimensions, "Estructurado");
+
+        // Act
+        var result = await handler.HandleAsync(command);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        await _candidateAssessmentRepository.Received(1).AddResultAsync(Arg.Any<CandidateAssessment>(), Arg.Any<CancellationToken>());
+        await _discRepository.DidNotReceive().AddResultAsync(Arg.Any<DiscResult>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetCandidateAssessment_WhenAssessmentExists_ShouldReturnDetailDto()
+    {
+        // Arrange
+        var candidateId = Guid.NewGuid();
+        var scores = AssessmentScores.Create("BigFive", new Dictionary<string, double> { { "Openness", 80.0 } }, "Creativo").Value;
+        var assessment = CandidateAssessment.Create(candidateId, scores).Value;
+
+        _candidateAssessmentRepository.GetResultByCandidateIdAsync(candidateId, Arg.Any<CancellationToken>())
+            .Returns(assessment);
+        _candidateAssessmentRepository.GetInterpretationByCandidateIdAsync(candidateId, Arg.Any<CancellationToken>())
+            .Returns((AssessmentInterpretation?)null);
+
+        var handler = new GetCandidateAssessmentQueryHandler(_candidateAssessmentRepository);
+        var query = new GetCandidateAssessmentQuery(candidateId);
+
+        // Act
+        var result = await handler.HandleAsync(query);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.AssessmentType.Should().Be("BigFive");
+        result.Value.Scores.PrimaryStyle.Should().Be("Creativo");
+        result.Value.Scores.Dimensions["Openness"].Should().Be(80.0);
     }
 }
 

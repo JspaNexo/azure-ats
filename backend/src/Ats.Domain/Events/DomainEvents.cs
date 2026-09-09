@@ -17,6 +17,18 @@ public record DiscCompletedDomainEvent(
     Guid DiscResultId,
     DateTime OccurredOnUtc) : IDomainEvent;
 
+public record AssessmentCompletedDomainEvent(
+    Guid CandidateId,
+    Guid AssessmentId,
+    string AssessmentType,
+    DateTime OccurredOnUtc) : IDomainEvent;
+
+public record AssessmentInterpretationCompletedDomainEvent(
+    Guid CandidateId,
+    Guid InterpretationId,
+    string AssessmentType,
+    DateTime OccurredOnUtc) : IDomainEvent;
+
 public record InterviewReportGeneratedDomainEvent(
     Guid CandidateId,
     Guid ReportId,

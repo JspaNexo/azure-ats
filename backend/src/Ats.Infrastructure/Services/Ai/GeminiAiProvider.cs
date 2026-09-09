@@ -18,7 +18,7 @@ public class GeminiOptions
     public string BaseUrl { get; set; } = "https://generativelanguage.googleapis.com/v1beta";
 }
 
-public class GeminiAiProvider : ICvAnalyzer, IDiscInterpreter, IInterviewQuestionGenerator
+public class GeminiAiProvider : ICvAnalyzer, IDiscInterpreter, IAssessmentInterpreter, IInterviewQuestionGenerator
 {
     private readonly HttpClient _httpClient;
     private readonly GeminiOptions _options;
@@ -304,26 +304,51 @@ public class GeminiAiProvider : ICvAnalyzer, IDiscInterpreter, IInterviewQuestio
         return Result.Success(dto);
     }
 
-    public async Task<Result<DiscInterpretationDto>> InterpretDiscAsync(DiscScores scores, CancellationToken cancellationToken = default)
+    public async Task<Result<AssessmentInterpretationDto>> InterpretAssessmentAsync(
+        string assessmentType,
+        AssessmentScores scores,
+        CancellationToken cancellationToken = default)
     {
-        string systemInstruction = """
-        Eres un consultor experto en metodología DISC y evaluación conductual para entrevistas laborales en TalentIQ Enterprise ATS.
-        Tu rol es generar una síntesis profesional, constructiva y neutral para orientar al evaluador humano en la entrevista.
+        if (scores == null)
+            return Result.Failure<AssessmentInterpretationDto>(Error.Validation("Assessment.InvalidScores", "Los puntajes de evaluacion no pueden ser nulos."));
+
+        string dimensionsSummary = string.Join("\n", scores.Dimensions.Select(kv => $"- {kv.Key}: {kv.Value:F1}"));
+
+        string systemInstruction = $"""
+        Eres un consultor experto en psicometria organizacional, evaluacion del comportamiento laboral y talent analytics para TalentIQ Enterprise ATS.
+        Tu rol es generar una sintesis profesional, constructiva y neutral para orientar al evaluador humano en la entrevista, basandote en la prueba de tipo '{assessmentType}'.
         Devuelve exclusivamente un objeto JSON estricto con la estructura solicitada.
         """;
 
         string userPrompt = $$"""
-        A partir de los siguientes resultados oficiales DISC de la plataforma:
-        - Dominancia (D): {{scores.Dominance}}
-        - Influencia (I): {{scores.Influence}}
-        - Estabilidad (S): {{scores.Steadiness}}
-        - Cumplimiento (C): {{scores.Conscientiousness}}
-        - Estilo Primario: {{scores.PrimaryStyle}}
+        A partir de los siguientes resultados oficiales de la evaluacion {{assessmentType}} del candidato:
+        {{dimensionsSummary}}
+        - Estilo / Perfil Dominante: {{scores.PrimaryStyle}}
 
-        Genera una síntesis narrativa profesional y neutral para ayudar al reclutador a conducir la entrevista.
+        Genera una sintesis narrativa profesional, estructurada y neutral para ayudar al reclutador a conducir la entrevista.
         """;
 
-        return await CallGeminiAsync<DiscInterpretationDto>(systemInstruction, userPrompt, cancellationToken, DiscInterpretationSchema);
+        return await CallGeminiAsync<AssessmentInterpretationDto>(systemInstruction, userPrompt, cancellationToken, DiscInterpretationSchema);
+    }
+
+    public async Task<Result<DiscInterpretationDto>> InterpretDiscAsync(DiscScores scores, CancellationToken cancellationToken = default)
+    {
+        var scoresResult = AssessmentScores.CreateDisc(scores.Dominance, scores.Influence, scores.Steadiness, scores.Conscientiousness, scores.PrimaryStyle);
+        if (scoresResult.IsFailure)
+            return Result.Failure<DiscInterpretationDto>(scoresResult.Error);
+
+        var result = await InterpretAssessmentAsync("DISC", scoresResult.Value, cancellationToken);
+        if (result.IsFailure)
+            return Result.Failure<DiscInterpretationDto>(result.Error);
+
+        var val = result.Value;
+        return Result.Success(new DiscInterpretationDto(
+            val.PrimaryStyle,
+            val.Summary,
+            val.StrengthsToExplore,
+            val.PointsToExplore,
+            val.BehavioralQuestionTopics,
+            val.Disclaimer));
     }
 
     public async Task<Result<InterviewQuestionsDto>> GenerateQuestionsAsync(

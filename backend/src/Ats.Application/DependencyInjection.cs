@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Ats.Application.Features.Assessments;
 using Ats.Application.Features.Candidates;
 using Ats.Application.Features.CvProcessing;
 using Ats.Application.Features.Disc;
@@ -26,6 +27,9 @@ public static class DependencyInjection
         services.AddScoped<RecordCvFeedbackCommandHandler>();
         services.AddScoped<SubmitDiscResultCommandHandler>();
         services.AddScoped<ProcessDiscInterpretationCommandHandler>();
+        services.AddScoped<SubmitAssessmentResultCommandHandler>();
+        services.AddScoped<ProcessAssessmentInterpretationCommandHandler>();
+        services.AddScoped<GetCandidateAssessmentQueryHandler>();
         services.AddScoped<GenerateInterviewReportCommandHandler>();
         services.AddScoped<GetInterviewReportQueryHandler>();
         services.AddScoped<GetReportPdfQueryHandler>();

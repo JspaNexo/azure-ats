@@ -15,6 +15,14 @@ public interface IDiscInterpreter
     Task<Result<DiscInterpretationDto>> InterpretDiscAsync(DiscScores scores, CancellationToken cancellationToken = default);
 }
 
+public interface IAssessmentInterpreter
+{
+    Task<Result<AssessmentInterpretationDto>> InterpretAssessmentAsync(
+        string assessmentType,
+        AssessmentScores scores,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IInterviewQuestionGenerator
 {
     Task<Result<InterviewQuestionsDto>> GenerateQuestionsAsync(

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import {
   Compass,
   TrendingUp,
@@ -20,66 +20,81 @@ interface DiscProfileTabProps {
 export const DiscProfileTab: React.FC<DiscProfileTabProps> = ({ candidate, onPrev, onNext }) => {
   const cv = candidate.cvAnalysis;
   const disc = candidate.discInterpretation;
+  const assessment = candidate.assessmentInterpretation;
 
-  // Extract or fallback DISC scores
-  const discPrimary = candidate.primaryDiscStyle || disc?.primaryStyle || 'D/C';
-  const dominance = discPrimary.includes('D') ? 88 : 45;
-  const influence = discPrimary.includes('I') ? 78 : 55;
-  const steadiness = discPrimary.includes('S') ? 75 : 42;
-  const conscientiousness = discPrimary.includes('C') ? 85 : 50;
+  // Determinar tipo de evaluación y estilo dominante
+  const primaryStyle = candidate.primaryDiscStyle || assessment?.primaryStyle || disc?.primaryStyle || 'Equilibrado';
+
+  // Extraer dimensiones dinámicas o fallback DISC
+  const hasDynamicScores = candidate.assessmentScores && Object.keys(candidate.assessmentScores).length > 0;
+  
+  const dimensionEntries: [string, number][] = hasDynamicScores
+    ? Object.entries(candidate.assessmentScores!)
+    : [
+        ['Dominancia (D)', candidate.primaryDiscStyle?.includes('D') ? 88 : 45],
+        ['Influencia (I)', candidate.primaryDiscStyle?.includes('I') ? 78 : 55],
+        ['Estabilidad (S)', candidate.primaryDiscStyle?.includes('S') ? 75 : 42],
+        ['Cumplimiento (C)', candidate.primaryDiscStyle?.includes('C') ? 85 : 50],
+      ];
+
+  const dimensionsRecord: Record<string, number> = Object.fromEntries(dimensionEntries);
+
+  // Descripciones de ayuda para dimensiones estándar DISC, Big Five o genéricas
+  const getDimensionSubtitle = (name: string): string => {
+    const lower = name.toLowerCase();
+    if (lower.includes('dominan') || lower === 'd') return 'Orientación a retos, rapidez y metas';
+    if (lower.includes('influen') || lower === 'i') return 'Comunicación, persuasión y entusiasmo';
+    if (lower.includes('estab') || lower === 's') return 'Paciencia, escucha y trabajo en equipo';
+    if (lower.includes('cumplim') || lower === 'c') return 'Rigor técnico, calidad y precisión';
+    if (lower.includes('open') || lower.includes('apertur')) return 'Curiosidad intelectual e imaginación';
+    if (lower.includes('conscient') || lower.includes('respons')) return 'Autodisciplina y sentido del deber';
+    if (lower.includes('extraver')) return 'Sociabilidad, asertividad y energía';
+    if (lower.includes('agreeab') || lower.includes('amabil')) return 'Empatía y cooperación interpersonal';
+    if (lower.includes('neurotic') || lower.includes('estabil')) return 'Regulación emocional bajo presión';
+    return 'Métrica evaluada en el perfil conductual';
+  };
+
+  const strengths = assessment?.strengthsToExplore || disc?.strengthsToExplore || [
+    'Alta orientación a la resolución de problemas técnicos complejos',
+    'Rigor en la toma de decisiones basada en métricas y estabilidad de sistemas',
+    'Capacidad comprobada para trabajar de manera autónoma con altos estándares',
+  ];
+
+  const pointsToExplore = cv?.pointsToValidate || assessment?.pointsToExplore || disc?.pointsToExplore || [
+    'Validar su adaptación ante cambios no planificados en el roadmap técnico',
+    'Indagar en su experiencia liderando o colaborando con perfiles interdisciplinarios',
+  ];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
-      {/* DISC Scores & Visualizer */}
+      {/* Assessment Scores & Visualizer */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <h4 className="text-base font-bold text-slate-900 flex items-center space-x-2">
             <Compass className="w-4 h-4 text-slate-700" />
-            <span>Evaluación Psicométrica y Conductual DISC</span>
+            <span>Evaluación Conductual {candidate.assessmentType ? `(${candidate.assessmentType})` : 'DISC'}</span>
           </h4>
           <span className="px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-slate-100 text-slate-900 border border-slate-300">
-            Estilo Principal: {candidate.primaryDiscStyle || 'D/C'}
+            Estilo Principal: {primaryStyle}
           </span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
           <div className="space-y-3 text-sm">
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
-              <div>
-                <span className="font-bold text-slate-900 block text-sm">Dominancia (D)</span>
-                <span className="text-xs text-slate-500">Orientación a retos, rapidez y metas</span>
+            {dimensionEntries.map(([dimName, dimValue]) => (
+              <div key={dimName} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
+                <div>
+                  <span className="font-bold text-slate-900 block text-sm">{dimName}</span>
+                  <span className="text-xs text-slate-500">{getDimensionSubtitle(dimName)}</span>
+                </div>
+                <span className="text-lg font-black text-slate-900">{Math.round(dimValue)}%</span>
               </div>
-              <span className="text-lg font-black text-slate-900">{dominance}%</span>
-            </div>
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
-              <div>
-                <span className="font-bold text-slate-900 block text-sm">Influencia (I)</span>
-                <span className="text-xs text-slate-500">Comunicación, persuasión y entusiasmo</span>
-              </div>
-              <span className="text-lg font-black text-slate-900">{influence}%</span>
-            </div>
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
-              <div>
-                <span className="font-bold text-slate-900 block text-sm">Estabilidad (S)</span>
-                <span className="text-xs text-slate-500">Paciencia, escucha y trabajo en equipo</span>
-              </div>
-              <span className="text-lg font-black text-slate-900">{steadiness}%</span>
-            </div>
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
-              <div>
-                <span className="font-bold text-slate-900 block text-sm">Cumplimiento (C)</span>
-                <span className="text-xs text-slate-500">Rigor técnico, calidad y precisión</span>
-              </div>
-              <span className="text-lg font-black text-slate-900">{conscientiousness}%</span>
-            </div>
+            ))}
           </div>
 
           <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200">
             <RadarChart
-              dominance={dominance}
-              influence={influence}
-              steadiness={steadiness}
-              conscientiousness={conscientiousness}
+              dimensions={dimensionsRecord}
               size={220}
             />
             <span className="text-xs text-slate-500 mt-2 font-medium">Matriz Conductual de {candidate.firstName}</span>
@@ -95,11 +110,7 @@ export const DiscProfileTab: React.FC<DiscProfileTabProps> = ({ candidate, onPre
             <span>Fortalezas Identificadas para el Rol</span>
           </h4>
           <ul className="space-y-2.5 text-xs sm:text-sm text-slate-700">
-            {(disc?.strengthsToExplore || [
-              'Alta orientación a la resolución de problemas técnicos complejos',
-              'Rigor en la toma de decisiones basada en métricas y estabilidad de sistemas',
-              'Capacidad comprobada para trabajar de manera autónoma con altos estándares',
-            ]).map((str, i) => (
+            {strengths.map((str, i) => (
               <li key={i} className="flex items-start space-x-2.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
                 <span className="leading-relaxed">{str}</span>
@@ -114,10 +125,7 @@ export const DiscProfileTab: React.FC<DiscProfileTabProps> = ({ candidate, onPre
             <span>Puntos a Explorar en la Entrevista</span>
           </h4>
           <ul className="space-y-2.5 text-xs sm:text-sm text-slate-700">
-            {(cv?.pointsToValidate || disc?.pointsToExplore || [
-              'Validar su adaptación ante cambios no planificados en el roadmap técnico',
-              'Indagar en su experiencia liderando o colaborando con perfiles interdisciplinarios',
-            ]).map((pt, i) => (
+            {pointsToExplore.map((pt, i) => (
               <li key={i} className="flex items-start space-x-2.5">
                 <HelpCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
                 <span className="leading-relaxed">{pt}</span>

@@ -167,6 +167,66 @@ public class DiscInterpretationConfiguration : IEntityTypeConfiguration<DiscInte
     }
 }
 
+public class CandidateAssessmentConfiguration : IEntityTypeConfiguration<CandidateAssessment>
+{
+    public void Configure(EntityTypeBuilder<CandidateAssessment> builder)
+    {
+        builder.ToTable("candidate_assessments");
+        builder.HasKey(a => a.Id);
+
+        builder.Property(a => a.AssessmentType).HasMaxLength(50).IsRequired();
+        builder.Property(a => a.RawResultsJson).HasColumnType("jsonb");
+
+        builder.OwnsOne(a => a.Scores, scoresBuilder =>
+        {
+            scoresBuilder.Property(s => s.AssessmentType).HasColumnName("assessment_type").HasMaxLength(50).IsRequired();
+            scoresBuilder.Property(s => s.PrimaryStyle).HasColumnName("primary_style").HasMaxLength(50).IsRequired();
+            scoresBuilder.Property(s => s.Dimensions)
+                .HasColumnName("dimensions_json")
+                .HasColumnType("jsonb")
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, double>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new Dictionary<string, double>())
+                .IsRequired();
+        });
+
+        builder.HasIndex(a => a.CandidateId);
+
+        builder.HasOne<Candidate>()
+            .WithMany()
+            .HasForeignKey(a => a.CandidateId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class AssessmentInterpretationConfiguration : IEntityTypeConfiguration<AssessmentInterpretation>
+{
+    public void Configure(EntityTypeBuilder<AssessmentInterpretation> builder)
+    {
+        builder.ToTable("candidate_assessment_interpretations");
+        builder.HasKey(i => i.Id);
+
+        builder.Property(i => i.AssessmentType).HasMaxLength(50).IsRequired();
+        builder.Property(i => i.InterpretationJson).HasColumnType("jsonb").IsRequired();
+        builder.Property(i => i.Status).HasConversion<string>().HasMaxLength(30).IsRequired();
+        builder.Property(i => i.ProviderName).HasMaxLength(50).IsRequired();
+        builder.Property(i => i.ModelName).HasMaxLength(50).IsRequired();
+        builder.Property(i => i.PromptVersion).HasMaxLength(20).IsRequired();
+
+        builder.HasIndex(i => i.CandidateId);
+
+        builder.HasOne<Candidate>()
+            .WithMany()
+            .HasForeignKey(i => i.CandidateId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne<CandidateAssessment>()
+            .WithMany()
+            .HasForeignKey(i => i.AssessmentId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 public class InterviewReportConfiguration : IEntityTypeConfiguration<InterviewReport>
 {
     public void Configure(EntityTypeBuilder<InterviewReport> builder)

@@ -26,7 +26,10 @@ public record CandidateDto(
     CvAnalysisDto? CvAnalysis = null,
     DiscInterpretationDto? DiscInterpretation = null,
     InterviewReportDto? Report = null,
-    JobFitResult? JobFitDetail = null);
+    JobFitResult? JobFitDetail = null,
+    string AssessmentType = "DISC",
+    Dictionary<string, double>? AssessmentScores = null,
+    AssessmentInterpretationDto? AssessmentInterpretation = null);
 
 public record CvAnalysisDto(
     [property: JsonPropertyName("professionalSummary")] string ProfessionalSummary = "",
@@ -78,6 +81,15 @@ public record DiscInterpretationDto(
     [property: JsonPropertyName("behavioralQuestionTopics")] List<string>? BehavioralQuestionTopics = null,
     [property: JsonPropertyName("disclaimer")] string Disclaimer = "");
 
+public record AssessmentInterpretationDto(
+    [property: JsonPropertyName("assessmentType")] string AssessmentType = "DISC",
+    [property: JsonPropertyName("primaryStyle")] string PrimaryStyle = "D/C",
+    [property: JsonPropertyName("summary")] string Summary = "",
+    [property: JsonPropertyName("strengthsToExplore")] List<string>? StrengthsToExplore = null,
+    [property: JsonPropertyName("pointsToExplore")] List<string>? PointsToExplore = null,
+    [property: JsonPropertyName("behavioralQuestionTopics")] List<string>? BehavioralQuestionTopics = null,
+    [property: JsonPropertyName("disclaimer")] string Disclaimer = "");
+
 public record InterviewQuestionsDto(
     [property: JsonPropertyName("professionalQuestions")] List<string>? ProfessionalQuestions = null,
     [property: JsonPropertyName("technicalQuestions")] List<string>? TechnicalQuestions = null,
@@ -109,7 +121,8 @@ public record DiscSummaryDto(
     [property: JsonPropertyName("primaryStyle")] string PrimaryStyle,
     [property: JsonPropertyName("summary")] string Summary,
     [property: JsonPropertyName("strengthsToExplore")] List<string> StrengthsToExplore,
-    [property: JsonPropertyName("pointsToExplore")] List<string> PointsToExplore);
+    [property: JsonPropertyName("pointsToExplore")] List<string> PointsToExplore,
+    [property: JsonPropertyName("evaluationType")] string EvaluationType = "DISC");
 
 public record ValidationPointDto(
     [property: JsonPropertyName("topic")] string Topic,
@@ -157,4 +170,17 @@ public record RecruiterDto(
     string Email,
     string Role = "Recruiter",
     int ActiveAssignmentsCount = 0);
+
+public record SubmitAssessmentResultRequest(
+    Guid CandidateId,
+    string AssessmentType,
+    Dictionary<string, double> Dimensions,
+    string? PrimaryStyle,
+    string? RawResultsJson = null);
+
+public record AssessmentScoresDto(
+    string AssessmentType,
+    IReadOnlyDictionary<string, double> Dimensions,
+    string PrimaryStyle);
+
 

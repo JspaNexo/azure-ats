@@ -33,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<IInterviewReportRepository, InterviewReportRepository>();
         services.AddScoped<IProcessingJobRepository, ProcessingJobRepository>();
         services.AddScoped<IJobPositionRepository, JobPositionRepository>();
+        services.AddScoped<ICandidateAssessmentRepository, CandidateAssessmentRepository>();
 
         // 3. Document Extractor, Storage & Skill Normalizer
         services.AddSingleton<IPdfTextExtractor, PdfPigTextExtractor>();
@@ -77,12 +78,14 @@ public static class DependencyInjection
             services.AddSingleton<MockAiProvider>();
             services.AddSingleton<ICvAnalyzer>(sp => sp.GetRequiredService<MockAiProvider>());
             services.AddSingleton<IDiscInterpreter>(sp => sp.GetRequiredService<MockAiProvider>());
+            services.AddSingleton<IAssessmentInterpreter>(sp => sp.GetRequiredService<MockAiProvider>());
             services.AddSingleton<IInterviewQuestionGenerator>(sp => sp.GetRequiredService<MockAiProvider>());
         }
         else
         {
             services.AddScoped<ICvAnalyzer>(sp => sp.GetRequiredService<GeminiAiProvider>());
             services.AddScoped<IDiscInterpreter>(sp => sp.GetRequiredService<GeminiAiProvider>());
+            services.AddScoped<IAssessmentInterpreter>(sp => sp.GetRequiredService<GeminiAiProvider>());
             services.AddScoped<IInterviewQuestionGenerator>(sp => sp.GetRequiredService<GeminiAiProvider>());
         }
 

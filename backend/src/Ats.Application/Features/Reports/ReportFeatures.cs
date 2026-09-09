@@ -17,6 +17,7 @@ public class GenerateInterviewReportCommandHandler
     private readonly ICandidateRepository _candidateRepository;
     private readonly ICvAnalysisRepository _cvAnalysisRepository;
     private readonly IDiscRepository _discRepository;
+    private readonly ICandidateAssessmentRepository? _assessmentRepository;
     private readonly IInterviewReportRepository _reportRepository;
     private readonly IProcessingJobRepository _processingJobRepository;
     private readonly IInterviewQuestionGenerator _questionGenerator;
@@ -33,7 +34,8 @@ public class GenerateInterviewReportCommandHandler
         IInterviewQuestionGenerator questionGenerator,
         IReportDocumentRenderer documentRenderer,
         IDocumentStorageService storageService,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ICandidateAssessmentRepository? assessmentRepository = null)
     {
         _candidateRepository = candidateRepository;
         _cvAnalysisRepository = cvAnalysisRepository;
@@ -44,6 +46,7 @@ public class GenerateInterviewReportCommandHandler
         _documentRenderer = documentRenderer;
         _storageService = storageService;
         _unitOfWork = unitOfWork;
+        _assessmentRepository = assessmentRepository;
     }
 
     public async Task<Result<InterviewReportDto>> HandleAsync(GenerateInterviewReportCommand command, CancellationToken cancellationToken = default)
@@ -73,7 +76,7 @@ public class GenerateInterviewReportCommandHandler
         job.MarkAsProcessing();
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // 2. Fetch Candidate, CV Analysis, and DISC Interpretation
+        // 2. Fetch Candidate, CV Analysis, and Assessment / DISC Interpretation
         var candidate = await _candidateRepository.GetByIdAsync(command.CandidateId, cancellationToken);
         if (candidate is null)
         {
@@ -85,21 +88,41 @@ public class GenerateInterviewReportCommandHandler
         var cvAnalysis = await _cvAnalysisRepository.GetByCandidateIdAsync(command.CandidateId, cancellationToken);
         if (cvAnalysis is null || cvAnalysis.Status != ProcessingStatus.Processed)
         {
-            job.MarkAsFailed("CvAnalysis.NotReady", "El análisis de CV aún no está procesado.");
+            job.MarkAsFailed("CvAnalysis.NotReady", "El analisis de CV aun no esta procesado.");
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return Result.Failure<InterviewReportDto>(Error.Validation("CvAnalysis.NotReady", "El análisis de CV aún no está procesado."));
+            return Result.Failure<InterviewReportDto>(Error.Validation("CvAnalysis.NotReady", "El analisis de CV aun no esta procesado."));
         }
 
-        var discInterpretation = await _discRepository.GetInterpretationByCandidateIdAsync(command.CandidateId, cancellationToken);
-        if (discInterpretation is null || discInterpretation.Status != ProcessingStatus.Processed)
+        string? interpretationJson = null;
+        string evalType = "DISC";
+        Guid interpretationId = Guid.Empty;
+
+        if (_assessmentRepository != null)
         {
-            job.MarkAsFailed("DiscInterpretation.NotReady", "La interpretación DISC aún no está procesada.");
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return Result.Failure<InterviewReportDto>(Error.Validation("DiscInterpretation.NotReady", "La interpretación DISC aún no está procesada."));
+            var assessmentInterp = await _assessmentRepository.GetInterpretationByCandidateIdAsync(command.CandidateId, cancellationToken);
+            if (assessmentInterp != null && assessmentInterp.Status == ProcessingStatus.Processed && !string.IsNullOrWhiteSpace(assessmentInterp.InterpretationJson))
+            {
+                interpretationJson = assessmentInterp.InterpretationJson;
+                evalType = assessmentInterp.AssessmentType;
+                interpretationId = assessmentInterp.Id;
+            }
+        }
+
+        if (string.IsNullOrEmpty(interpretationJson))
+        {
+            var discInterpretation = await _discRepository.GetInterpretationByCandidateIdAsync(command.CandidateId, cancellationToken);
+            if (discInterpretation is null || discInterpretation.Status != ProcessingStatus.Processed)
+            {
+                job.MarkAsFailed("AssessmentInterpretation.NotReady", "La interpretacion conductual/DISC aun no esta procesada.");
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                return Result.Failure<InterviewReportDto>(Error.Validation("AssessmentInterpretation.NotReady", "La interpretacion conductual/DISC aun no esta procesada."));
+            }
+            interpretationJson = discInterpretation.InterpretationJson;
+            interpretationId = discInterpretation.Id;
         }
 
         var cvDto = JsonSerializer.Deserialize<CvAnalysisDto>(cvAnalysis.AnalysisJson);
-        var discDto = JsonSerializer.Deserialize<DiscInterpretationDto>(discInterpretation.InterpretationJson);
+        var discDto = JsonSerializer.Deserialize<DiscInterpretationDto>(interpretationJson);
 
         if (cvDto is null || discDto is null)
         {
@@ -126,7 +149,7 @@ public class GenerateInterviewReportCommandHandler
                 ProfessionalSummary: cvDto.ProfessionalSummary),
             ProfessionalProfile: new ProfessionalProfileDto(
                 MainSkills: (cvDto.Skills ?? []).Select(s => s.NormalizedName).Take(8).ToList(),
-                RelevantExperience: (cvDto.WorkExperience ?? []).Select(w => $"{w.Role} en {w.Company} ({w.DurationYears} años)").Take(4).ToList(),
+                RelevantExperience: (cvDto.WorkExperience ?? []).Select(w => $"{w.Role} en {w.Company} ({w.DurationYears} anos)").Take(4).ToList(),
                 Education: (cvDto.Education ?? []).Select(e => $"{e.Degree} - {e.Institution}").ToList(),
                 Languages: (cvDto.Languages ?? []).Select(l => $"{l.Name} ({l.Level})").ToList(),
                 Certifications: (cvDto.Certifications ?? []).Select(c => c.Name).ToList()),
@@ -134,7 +157,8 @@ public class GenerateInterviewReportCommandHandler
                 PrimaryStyle: discDto.PrimaryStyle,
                 Summary: discDto.Summary,
                 StrengthsToExplore: discDto.StrengthsToExplore ?? [],
-                PointsToExplore: discDto.PointsToExplore ?? []),
+                PointsToExplore: discDto.PointsToExplore ?? [],
+                EvaluationType: evalType),
             ValidationPoints: (cvDto.PointsToValidate ?? []).Select(p => new ValidationPointDto(
                 Topic: "Skill / Experiencia",
                 Reason: p,
@@ -143,7 +167,7 @@ public class GenerateInterviewReportCommandHandler
                 ProfessionalQuestions: questionsResult.Value.ProfessionalQuestions ?? [],
                 TechnicalQuestions: questionsResult.Value.TechnicalQuestions ?? [],
                 BehavioralQuestions: questionsResult.Value.BehavioralQuestions ?? []),
-            Disclaimer: "Este informe sirve como herramienta de apoyo para la entrevista y no reemplaza el criterio profesional del reclutador ni realiza diagnósticos psicológicos.");
+            Disclaimer: "Este informe sirve como herramienta de apoyo para la entrevista y no reemplaza el criterio profesional del reclutador ni realiza diagnosticos psicologicos.");
 
         // 5. Render PDF Document
         var pdfResult = await _documentRenderer.RenderReportPdfAsync(reportDto, cancellationToken);
@@ -167,7 +191,7 @@ public class GenerateInterviewReportCommandHandler
         string reportJson = JsonSerializer.Serialize(reportDto);
         report.MarkAsGenerated(
             cvAnalysis.Id,
-            discInterpretation.Id,
+            interpretationId,
             reportJson,
             fileUrl,
             "GoogleGemini",
@@ -207,13 +231,13 @@ public class GetInterviewReportQueryHandler
         if (report is null)
         {
             return Result.Failure<InterviewReportDto>(
-                Error.NotFound("Report.NotFound", $"No se encontró informe preentrevista para el candidato {query.CandidateId}."));
+                Error.NotFound("Report.NotFound", $"No se encontro informe preentrevista para el candidato {query.CandidateId}."));
         }
 
         if (report.Status != ReportStatus.Generated || string.IsNullOrEmpty(report.ReportContentJson))
         {
             return Result.Failure<InterviewReportDto>(
-                Error.Validation("Report.NotGenerated", $"El informe está en estado '{report.Status}' y aún no ha finalizado su generación."));
+                Error.Validation("Report.NotGenerated", $"El informe esta en estado '{report.Status}' y aun no ha finalizado su generacion."));
         }
 
         var dto = JsonSerializer.Deserialize<InterviewReportDto>(report.ReportContentJson);
@@ -226,7 +250,6 @@ public class GetInterviewReportQueryHandler
         return Result.Success(dto);
     }
 }
-
 
 public record GetReportPdfQuery(Guid CandidateId);
 
@@ -281,4 +304,3 @@ public class GetReportPdfQueryHandler
         return Result.Failure<byte[]>(Error.Failure("Report.RenderFailed", "No se pudo generar el documento PDF del informe."));
     }
 }
-
