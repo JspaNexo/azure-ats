@@ -1,3 +1,4 @@
+using System.Text.Json;
 using FluentValidation;
 using Ats.Application.Common.Interfaces;
 using Ats.Application.DTOs;
@@ -107,6 +108,8 @@ public class GetCandidateByIdQueryHandler
         _assessmentRepository = assessmentRepository;
     }
 
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
     public async Task<Result<CandidateDto>> HandleAsync(GetCandidateByIdQuery query, CancellationToken cancellationToken = default)
     {
         var candidate = await _candidateRepository.GetByIdAsync(query.Id, cancellationToken);
@@ -131,34 +134,34 @@ public class GetCandidateByIdQueryHandler
         CvAnalysisDto? cvDto = null;
         if (cvAnalysis != null && !string.IsNullOrWhiteSpace(cvAnalysis.AnalysisJson) && cvAnalysis.AnalysisJson != "{}")
         {
-            try { cvDto = System.Text.Json.JsonSerializer.Deserialize<CvAnalysisDto>(cvAnalysis.AnalysisJson); } catch { }
+            try { cvDto = System.Text.Json.JsonSerializer.Deserialize<CvAnalysisDto>(cvAnalysis.AnalysisJson, JsonOptions); } catch { }
         }
 
         DiscInterpretationDto? discDto = null;
         if (discInterp != null && !string.IsNullOrWhiteSpace(discInterp.InterpretationJson) && discInterp.InterpretationJson != "{}")
         {
-            try { discDto = System.Text.Json.JsonSerializer.Deserialize<DiscInterpretationDto>(discInterp.InterpretationJson); } catch { }
+            try { discDto = System.Text.Json.JsonSerializer.Deserialize<DiscInterpretationDto>(discInterp.InterpretationJson, JsonOptions); } catch { }
         }
 
         AssessmentInterpretationDto? assessmentDto = null;
         if (assessmentInterp != null && !string.IsNullOrWhiteSpace(assessmentInterp.InterpretationJson) && assessmentInterp.InterpretationJson != "{}")
         {
-            try { assessmentDto = System.Text.Json.JsonSerializer.Deserialize<AssessmentInterpretationDto>(assessmentInterp.InterpretationJson); } catch { }
+            try { assessmentDto = System.Text.Json.JsonSerializer.Deserialize<AssessmentInterpretationDto>(assessmentInterp.InterpretationJson, JsonOptions); } catch { }
         }
 
         InterviewReportDto? reportDto = null;
         if (report != null && !string.IsNullOrWhiteSpace(report.ReportContentJson) && report.ReportContentJson != "{}")
         {
-            try { reportDto = System.Text.Json.JsonSerializer.Deserialize<InterviewReportDto>(report.ReportContentJson); } catch { }
+            try { reportDto = System.Text.Json.JsonSerializer.Deserialize<InterviewReportDto>(report.ReportContentJson, JsonOptions); } catch { }
         }
 
         string targetRole = !string.IsNullOrWhiteSpace(candidate.TargetRole)
             ? candidate.TargetRole
-            : (cvDto?.CurrentRole ?? "Senior Software Engineer");
-        string seniority = cvDto?.EstimatedSeniority ?? "Senior";
-        int expYears = (int)Math.Round(cvDto?.TotalExperienceYears ?? 5.0);
+            : (cvDto?.CurrentRole ?? "");
+        string seniority = cvDto?.EstimatedSeniority ?? "";
+        int expYears = cvDto != null ? (int)Math.Round(cvDto.TotalExperienceYears) : 0;
 
-        string assessmentType = assessment?.AssessmentType ?? "DISC";
+        string assessmentType = assessment?.AssessmentType ?? (discResult != null ? "DISC" : "");
         var dimensionScores = assessment?.Scores.Dimensions.ToDictionary(k => k.Key, v => v.Value)
             ?? (discResult != null ? new Dictionary<string, double> {
                 ["Dominance"] = discResult.Scores.Dominance,
@@ -167,7 +170,7 @@ public class GetCandidateByIdQueryHandler
                 ["Conscientiousness"] = discResult.Scores.Conscientiousness
             } : null);
 
-        string primaryStyle = assessment?.Scores.PrimaryStyle ?? discResult?.Scores.PrimaryStyle ?? discDto?.PrimaryStyle ?? "D/C";
+        string primaryStyle = assessment?.Scores.PrimaryStyle ?? discResult?.Scores.PrimaryStyle ?? discDto?.PrimaryStyle ?? "";
 
         // Calculate dynamic Job Fit Score
         JobFitResult? jobFit = null;
@@ -189,7 +192,7 @@ public class GetCandidateByIdQueryHandler
             jobFit = _jobFitScoringService.CalculateFit(cvDto, position);
         }
 
-        int matchScore = jobFit?.OverallScore ?? (cvDto != null ? _jobFitScoringService?.CalculateFit(cvDto, null).OverallScore ?? 70 : 0);
+        int matchScore = jobFit?.OverallScore ?? (cvDto != null ? _jobFitScoringService?.CalculateFit(cvDto, null).OverallScore ?? 0 : 0);
         string status = report != null && report.Status == Domain.Enums.ReportStatus.Generated ? "ReportReady" :
                         (assessmentInterp != null && assessmentInterp.Status == Domain.Enums.ProcessingStatus.Processed) || (discInterp != null && discInterp.Status == Domain.Enums.ProcessingStatus.Processed) ? "DiscEvaluated" :
                         cvAnalysis != null && cvAnalysis.Status == Domain.Enums.ProcessingStatus.Processed ? "CvAnalyzed" : "Registered";
@@ -255,6 +258,8 @@ public class GetCandidatesQueryHandler
         _assessmentRepository = assessmentRepository;
     }
 
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
     public async Task<Result<IReadOnlyList<CandidateDto>>> HandleAsync(GetCandidatesQuery query, CancellationToken cancellationToken = default)
     {
         var candidates = await _candidateRepository.GetAllAsync(cancellationToken);
@@ -266,37 +271,37 @@ public class GetCandidatesQueryHandler
 
         if (!candidates.Any())
         {
-            return Result<IReadOnlyList<CandidateDto>>.Success((IReadOnlyList<CandidateDto>)new List<CandidateDto>());
+            return Result.Success<IReadOnlyList<CandidateDto>>(Array.Empty<CandidateDto>());
         }
 
         var candidateIds = candidates.Select(c => c.Id).ToList();
 
-        // BULK FETCH
         var cvAnalyses = await _cvAnalysisRepository.GetByCandidateIdsAsync(candidateIds, cancellationToken);
         var discInterps = await _discRepository.GetInterpretationsByCandidateIdsAsync(candidateIds, cancellationToken);
         var discResults = await _discRepository.GetResultsByCandidateIdsAsync(candidateIds, cancellationToken);
         var reports = await _reportRepository.GetByCandidateIdsAsync(candidateIds, cancellationToken);
-        
-        var assessments = _assessmentRepository != null
-            ? await _assessmentRepository.GetResultsByCandidateIdsAsync(candidateIds, cancellationToken)
-            : new List<CandidateAssessment>();
-        var assessmentInterps = _assessmentRepository != null
-            ? await _assessmentRepository.GetInterpretationsByCandidateIdsAsync(candidateIds, cancellationToken)
-            : new List<AssessmentInterpretation>();
+
+        IReadOnlyList<CandidateAssessment> assessments = Array.Empty<CandidateAssessment>();
+        IReadOnlyList<AssessmentInterpretation> assessmentInterps = Array.Empty<AssessmentInterpretation>();
+        if (_assessmentRepository != null)
+        {
+            assessments = await _assessmentRepository.GetResultsByCandidateIdsAsync(candidateIds, cancellationToken);
+            assessmentInterps = await _assessmentRepository.GetInterpretationsByCandidateIdsAsync(candidateIds, cancellationToken);
+        }
+
+        var cvAnalysesDict = cvAnalyses.ToDictionary(a => a.CandidateId);
+        var discInterpsDict = discInterps.ToDictionary(d => d.CandidateId);
+        var discResultsDict = discResults.ToDictionary(r => r.CandidateId);
+        var reportsDict = reports.ToDictionary(r => r.CandidateId);
+        var assessmentsDict = assessments.ToDictionary(a => a.CandidateId);
+        var assessmentInterpsDict = assessmentInterps.ToDictionary(i => i.CandidateId);
 
         IReadOnlyList<JobPosition> allJobPositions = _jobPositionRepository != null
             ? await _jobPositionRepository.GetAllAsync(status: null, cancellationToken: cancellationToken)
-            : new List<JobPosition>();
+            : Array.Empty<JobPosition>();
+        var jobPositionsDict = allJobPositions.ToDictionary(j => j.Id);
 
-        var cvAnalysesDict = cvAnalyses.DistinctBy(a => a.CandidateId).ToDictionary(a => a.CandidateId);
-        var discInterpsDict = discInterps.DistinctBy(i => i.CandidateId).ToDictionary(i => i.CandidateId);
-        var discResultsDict = discResults.DistinctBy(r => r.CandidateId).ToDictionary(r => r.CandidateId);
-        var reportsDict = reports.DistinctBy(r => r.CandidateId).ToDictionary(r => r.CandidateId);
-        var jobPositionsDict = allJobPositions.DistinctBy(j => j.Id).ToDictionary(j => j.Id);
-        var assessmentsDict = assessments.DistinctBy(a => a.CandidateId).ToDictionary(a => a.CandidateId);
-        var assessmentInterpsDict = assessmentInterps.DistinctBy(i => i.CandidateId).ToDictionary(i => i.CandidateId);
-
-        var dtos = new List<CandidateDto>();
+        var dtos = new List<CandidateDto>(candidates.Count);
 
         foreach (var c in candidates)
         {
@@ -310,34 +315,34 @@ public class GetCandidatesQueryHandler
             CvAnalysisDto? cvDto = null;
             if (cvAnalysis != null && !string.IsNullOrWhiteSpace(cvAnalysis.AnalysisJson) && cvAnalysis.AnalysisJson != "{}")
             {
-                try { cvDto = System.Text.Json.JsonSerializer.Deserialize<CvAnalysisDto>(cvAnalysis.AnalysisJson); } catch { }
+                try { cvDto = System.Text.Json.JsonSerializer.Deserialize<CvAnalysisDto>(cvAnalysis.AnalysisJson, JsonOptions); } catch { }
             }
 
             DiscInterpretationDto? discDto = null;
             if (discInterp != null && !string.IsNullOrWhiteSpace(discInterp.InterpretationJson) && discInterp.InterpretationJson != "{}")
             {
-                try { discDto = System.Text.Json.JsonSerializer.Deserialize<DiscInterpretationDto>(discInterp.InterpretationJson); } catch { }
+                try { discDto = System.Text.Json.JsonSerializer.Deserialize<DiscInterpretationDto>(discInterp.InterpretationJson, JsonOptions); } catch { }
             }
 
             AssessmentInterpretationDto? assessmentDto = null;
             if (assessmentInterp != null && !string.IsNullOrWhiteSpace(assessmentInterp.InterpretationJson) && assessmentInterp.InterpretationJson != "{}")
             {
-                try { assessmentDto = System.Text.Json.JsonSerializer.Deserialize<AssessmentInterpretationDto>(assessmentInterp.InterpretationJson); } catch { }
+                try { assessmentDto = System.Text.Json.JsonSerializer.Deserialize<AssessmentInterpretationDto>(assessmentInterp.InterpretationJson, JsonOptions); } catch { }
             }
 
             InterviewReportDto? reportDto = null;
             if (report != null && !string.IsNullOrWhiteSpace(report.ReportContentJson) && report.ReportContentJson != "{}")
             {
-                try { reportDto = System.Text.Json.JsonSerializer.Deserialize<InterviewReportDto>(report.ReportContentJson); } catch { }
+                try { reportDto = System.Text.Json.JsonSerializer.Deserialize<InterviewReportDto>(report.ReportContentJson, JsonOptions); } catch { }
             }
 
             string targetRole = !string.IsNullOrWhiteSpace(c.TargetRole)
                 ? c.TargetRole
-                : (cvDto?.CurrentRole ?? "Senior Software Engineer");
-            string seniority = cvDto?.EstimatedSeniority ?? "Senior";
-            int expYears = (int)Math.Round(cvDto?.TotalExperienceYears ?? 5.0);
+                : (cvDto?.CurrentRole ?? "");
+            string seniority = cvDto?.EstimatedSeniority ?? "";
+            int expYears = cvDto != null ? (int)Math.Round(cvDto.TotalExperienceYears) : 0;
 
-            string assessmentType = assessment?.AssessmentType ?? "DISC";
+            string assessmentType = assessment?.AssessmentType ?? (discResult != null ? "DISC" : "");
             var dimensionScores = assessment?.Scores.Dimensions.ToDictionary(k => k.Key, v => v.Value)
                 ?? (discResult != null ? new Dictionary<string, double> {
                     ["Dominance"] = discResult.Scores.Dominance,
@@ -346,7 +351,7 @@ public class GetCandidatesQueryHandler
                     ["Conscientiousness"] = discResult.Scores.Conscientiousness
                 } : null);
 
-            string primaryStyle = assessment?.Scores.PrimaryStyle ?? discResult?.Scores.PrimaryStyle ?? discDto?.PrimaryStyle ?? "D/C";
+            string primaryStyle = assessment?.Scores.PrimaryStyle ?? discResult?.Scores.PrimaryStyle ?? discDto?.PrimaryStyle ?? "";
 
             // Calculate dynamic Job Fit Score
             JobFitResult? jobFit = null;
@@ -367,7 +372,7 @@ public class GetCandidatesQueryHandler
                 jobFit = _jobFitScoringService.CalculateFit(cvDto, position);
             }
 
-            int matchScore = jobFit?.OverallScore ?? (cvDto != null ? _jobFitScoringService?.CalculateFit(cvDto, null).OverallScore ?? 70 : 0);
+            int matchScore = jobFit?.OverallScore ?? (cvDto != null ? _jobFitScoringService?.CalculateFit(cvDto, null).OverallScore ?? 0 : 0);
             string status = report != null && report.Status == Domain.Enums.ReportStatus.Generated ? "ReportReady" :
                             (assessmentInterp != null && assessmentInterp.Status == Domain.Enums.ProcessingStatus.Processed) || (discInterp != null && discInterp.Status == Domain.Enums.ProcessingStatus.Processed) ? "DiscEvaluated" :
                             cvAnalysis != null && cvAnalysis.Status == Domain.Enums.ProcessingStatus.Processed ? "CvAnalyzed" : "Registered";
@@ -510,13 +515,38 @@ public class GetRecruitersQueryHandler
 
         var candidates = await _candidateRepository.GetAllAsync(cancellationToken);
 
-        var recruiters = new List<RecruiterDto>
+        var recruiterMap = new Dictionary<string, (string Name, string Email)>(StringComparer.OrdinalIgnoreCase);
+
+        // Evaluadores activos en expedientes asignados
+        foreach (var c in candidates.Where(c => !string.IsNullOrWhiteSpace(c.AssignedRecruiterId)))
         {
-            new("carlos.mendoza", "Carlos Mendoza", "carlos.mendoza@empresa.com", "Recruiter",
-                candidates.Count(c => c.AssignedRecruiterId == "carlos.mendoza")),
-            new("laura.sanchez", "Laura Sánchez", "laura.sanchez@empresa.com", "Recruiter",
-                candidates.Count(c => c.AssignedRecruiterId == "laura.sanchez"))
-        }.AsReadOnly();
+            string recId = c.AssignedRecruiterId!;
+            if (!recruiterMap.ContainsKey(recId))
+            {
+                recruiterMap[recId] = (
+                    c.AssignedRecruiterName ?? recId,
+                    c.AssignedRecruiterEmail ?? $"{recId.ToLowerInvariant()}@empresa.com"
+                );
+            }
+        }
+
+        // Si aún no hay asignaciones en base de datos, incluir evaluadores predeterminados de la organización
+        if (!recruiterMap.ContainsKey("carlos.mendoza"))
+        {
+            recruiterMap["carlos.mendoza"] = ("Carlos Mendoza", "carlos.mendoza@empresa.com");
+        }
+        if (!recruiterMap.ContainsKey("laura.sanchez"))
+        {
+            recruiterMap["laura.sanchez"] = ("Laura Sánchez", "laura.sanchez@empresa.com");
+        }
+
+        var recruiters = recruiterMap.Select(kvp => new RecruiterDto(
+            kvp.Key,
+            kvp.Value.Name,
+            kvp.Value.Email,
+            "Recruiter",
+            candidates.Count(c => string.Equals(c.AssignedRecruiterId, kvp.Key, StringComparison.OrdinalIgnoreCase))
+        )).OrderBy(r => r.FullName).ToList().AsReadOnly();
 
         if (_cacheService != null)
         {

@@ -23,19 +23,14 @@ export const DiscProfileTab: React.FC<DiscProfileTabProps> = ({ candidate, onPre
   const assessment = candidate.assessmentInterpretation;
 
   // Determinar tipo de evaluación y estilo dominante
-  const primaryStyle = candidate.primaryDiscStyle || assessment?.primaryStyle || disc?.primaryStyle || 'Equilibrado';
+  const primaryStyle = candidate.primaryDiscStyle || assessment?.primaryStyle || disc?.primaryStyle || 'Pendiente de evaluación';
 
-  // Extraer dimensiones dinámicas o fallback DISC
+  // Extraer dimensiones dinámicas o reales
   const hasDynamicScores = candidate.assessmentScores && Object.keys(candidate.assessmentScores).length > 0;
   
   const dimensionEntries: [string, number][] = hasDynamicScores
     ? Object.entries(candidate.assessmentScores!)
-    : [
-        ['Dominancia (D)', candidate.primaryDiscStyle?.includes('D') ? 88 : 45],
-        ['Influencia (I)', candidate.primaryDiscStyle?.includes('I') ? 78 : 55],
-        ['Estabilidad (S)', candidate.primaryDiscStyle?.includes('S') ? 75 : 42],
-        ['Cumplimiento (C)', candidate.primaryDiscStyle?.includes('C') ? 85 : 50],
-      ];
+    : [];
 
   const dimensionsRecord: Record<string, number> = Object.fromEntries(dimensionEntries);
 
@@ -54,16 +49,9 @@ export const DiscProfileTab: React.FC<DiscProfileTabProps> = ({ candidate, onPre
     return 'Métrica evaluada en el perfil conductual';
   };
 
-  const strengths = assessment?.strengthsToExplore || disc?.strengthsToExplore || [
-    'Alta orientación a la resolución de problemas técnicos complejos',
-    'Rigor en la toma de decisiones basada en métricas y estabilidad de sistemas',
-    'Capacidad comprobada para trabajar de manera autónoma con altos estándares',
-  ];
+  const strengths = assessment?.strengthsToExplore || disc?.strengthsToExplore || [];
 
-  const pointsToExplore = cv?.pointsToValidate || assessment?.pointsToExplore || disc?.pointsToExplore || [
-    'Validar su adaptación ante cambios no planificados en el roadmap técnico',
-    'Indagar en su experiencia liderando o colaborando con perfiles interdisciplinarios',
-  ];
+  const pointsToExplore = cv?.pointsToValidate || assessment?.pointsToExplore || disc?.pointsToExplore || [];
 
   return (
     <div className="space-y-6 animate-in fade-in duration-150">
@@ -79,27 +67,35 @@ export const DiscProfileTab: React.FC<DiscProfileTabProps> = ({ candidate, onPre
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-          <div className="space-y-3 text-sm">
-            {dimensionEntries.map(([dimName, dimValue]) => (
-              <div key={dimName} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
-                <div>
-                  <span className="font-bold text-slate-900 block text-sm">{dimName}</span>
-                  <span className="text-xs text-slate-500">{getDimensionSubtitle(dimName)}</span>
+        {dimensionEntries.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            <div className="space-y-3 text-sm">
+              {dimensionEntries.map(([dimName, dimValue]) => (
+                <div key={dimName} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
+                  <div>
+                    <span className="font-bold text-slate-900 block text-sm">{dimName}</span>
+                    <span className="text-xs text-slate-500">{getDimensionSubtitle(dimName)}</span>
+                  </div>
+                  <span className="text-lg font-black text-slate-900">{Math.round(dimValue)}%</span>
                 </div>
-                <span className="text-lg font-black text-slate-900">{Math.round(dimValue)}%</span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-          <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200">
-            <RadarChart
-              dimensions={dimensionsRecord}
-              size={220}
-            />
-            <span className="text-xs text-slate-500 mt-2 font-medium">Matriz Conductual de {candidate.firstName}</span>
+            <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200">
+              <RadarChart
+                dimensions={dimensionsRecord}
+                size={220}
+              />
+              <span className="text-xs text-slate-500 mt-2 font-medium">Matriz Conductual de {candidate.firstName}</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200 text-slate-500 text-xs">
+            <Compass className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+            <p className="font-semibold text-slate-700">Sin dimensiones psicométricas registradas</p>
+            <p className="mt-0.5">La evaluación conductual de este candidato aún no ha sido cargada en el sistema.</p>
+          </div>
+        )}
       </div>
 
       {/* Strengths and Points to Explore */}
@@ -109,14 +105,18 @@ export const DiscProfileTab: React.FC<DiscProfileTabProps> = ({ candidate, onPre
             <TrendingUp className="w-4 h-4 text-emerald-600" />
             <span>Fortalezas Identificadas para el Rol</span>
           </h4>
-          <ul className="space-y-2.5 text-xs sm:text-sm text-slate-700">
-            {strengths.map((str, i) => (
-              <li key={i} className="flex items-start space-x-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
-                <span className="leading-relaxed">{str}</span>
-              </li>
-            ))}
-          </ul>
+          {strengths.length > 0 ? (
+            <ul className="space-y-2.5 text-xs sm:text-sm text-slate-700">
+              {strengths.map((str, i) => (
+                <li key={i} className="flex items-start space-x-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">{str}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-slate-400 italic">No se han registrado fortalezas conductuales previas.</p>
+          )}
         </div>
 
         <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
@@ -124,14 +124,18 @@ export const DiscProfileTab: React.FC<DiscProfileTabProps> = ({ candidate, onPre
             <AlertTriangle className="w-4 h-4 text-amber-600" />
             <span>Puntos a Explorar en la Entrevista</span>
           </h4>
-          <ul className="space-y-2.5 text-xs sm:text-sm text-slate-700">
-            {pointsToExplore.map((pt, i) => (
-              <li key={i} className="flex items-start space-x-2.5">
-                <HelpCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                <span className="leading-relaxed">{pt}</span>
-              </li>
-            ))}
-          </ul>
+          {pointsToExplore.length > 0 ? (
+            <ul className="space-y-2.5 text-xs sm:text-sm text-slate-700">
+              {pointsToExplore.map((pt, i) => (
+                <li key={i} className="flex items-start space-x-2.5">
+                  <HelpCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <span className="leading-relaxed">{pt}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-slate-400 italic">No se han detectado inconsistencias o puntos a indagar.</p>
+          )}
         </div>
       </div>
 

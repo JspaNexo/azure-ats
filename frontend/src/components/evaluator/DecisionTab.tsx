@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import {
   FileCheck,
   CheckCircle2,
@@ -83,10 +83,10 @@ export const DecisionTab: React.FC<DecisionTabProps> = ({
           <div>
             <h3 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
               <FileCheck className="w-5 h-5 text-emerald-600" />
-              <span>Resolución Oficial del Evaluador</span>
+              <span>Resolución y Dictamen Oficial de Recursos Humanos</span>
             </h3>
             <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-              Selecciona la decisión formal para el expediente de {candidate.firstName} {candidate.lastName}.
+              Decisión formal y soberana del evaluador tras cotejar el currículum original y realizar la entrevista con {candidate.firstName} {candidate.lastName}.
             </p>
           </div>
           {candidate.evaluatedAtUtc && (

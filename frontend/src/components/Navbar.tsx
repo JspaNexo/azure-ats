@@ -54,7 +54,7 @@ export const Navbar = ({
               </span>
             </div>
             <p className="hidden md:block text-xs text-slate-400 font-normal truncate">
-              Sistema de Evaluación de Candidatos & Diagnóstico Curricular
+              Plataforma de Asistencia en Selección & Preparación de Entrevistas
             </p>
           </div>
         </div>

@@ -24,7 +24,7 @@ export const StatsCards = ({ candidates }: StatsCardsProps) => {
   const myEvaluated = myCandidates.filter((c) => c.evaluatorDecision && c.evaluatorDecision !== 'Pending').length;
   const myPending = myCandidates.length - myEvaluated;
   const myAvgMatch = myCandidates.length > 0
-    ? Math.round(myCandidates.reduce((sum, c) => sum + (c.matchScore || 90), 0) / myCandidates.length)
+    ? Math.round(myCandidates.reduce((sum, c) => sum + (c.matchScore ?? 0), 0) / myCandidates.length)
     : 0;
 
   const adminStats = [
@@ -81,9 +81,9 @@ export const StatsCards = ({ candidates }: StatsCardsProps) => {
       highlight: false,
     },
     {
-      name: 'Ajuste Técnico Promedio',
+      name: 'Cotejo Promedio',
       value: myCandidates.length > 0 ? `${myAvgMatch}%` : 'N/A',
-      subtext: 'Promedio de tu grupo',
+      subtext: 'Requisitos declarados',
       icon: Award,
       highlight: false,
     },

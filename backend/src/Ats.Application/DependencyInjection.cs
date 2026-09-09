@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<GetCandidateByIdQueryHandler>();
         services.AddScoped<GetCandidatesQueryHandler>();
         services.AddScoped<UploadCvCommandHandler>();
+        services.AddScoped<GetCandidateCvDocumentQueryHandler>();
         services.AddScoped<ProcessCvAnalysisCommandHandler>();
         services.AddScoped<RecordCvFeedbackCommandHandler>();
         services.AddScoped<SubmitDiscResultCommandHandler>();

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Download,
@@ -23,6 +23,7 @@ import { DiscProfileTab } from './evaluator/DiscProfileTab';
 import { InterviewGuideTab } from './evaluator/InterviewGuideTab';
 import { DecisionTab } from './evaluator/DecisionTab';
 import { PdfReportTab } from './evaluator/PdfReportTab';
+import { PdfViewerModal } from './PdfViewerModal';
 
 interface EvaluatorReviewModalProps {
   isOpen: boolean;
@@ -41,6 +42,7 @@ export const EvaluatorReviewModal: React.FC<EvaluatorReviewModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<ModalTab>('cv');
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Evaluator decision & notes state
@@ -128,11 +130,17 @@ export const EvaluatorReviewModal: React.FC<EvaluatorReviewModalProps> = ({
                 <h3 className="text-base sm:text-xl font-bold text-white tracking-tight">
                   {candidate.firstName} {candidate.lastName}
                 </h3>
-                <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-bold bg-slate-800 text-emerald-400 border border-slate-700">
-                  {candidate.matchScore || 90}% Compatibilidad
+                <span
+                  className="px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-bold bg-slate-800 text-emerald-400 border border-slate-700"
+                  title="Cotejo informativo de tecnologías y experiencia detectadas en el CV frente a los requisitos de la vacante. No representa una calificación."
+                >
+                  Cotejo: {candidate.matchScore ?? 0}% requisitos
+                </span>
+                <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-semibold bg-blue-900/60 text-blue-300 border border-blue-700/60">
+                  Dossier Pre-Entrevista
                 </span>
                 <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
-                  DISC: {candidate.primaryDiscStyle || 'D/C'}
+                  DISC: {candidate.primaryDiscStyle || 'Sin evaluar'}
                 </span>
                 {candidate.evaluatorDecision === 'Approved' && (
                   <span className="px-2 sm:px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-bold bg-emerald-700 text-white flex items-center space-x-1">
@@ -170,16 +178,41 @@ export const EvaluatorReviewModal: React.FC<EvaluatorReviewModalProps> = ({
 
           <div className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
             <button
+              type="button"
+              onClick={() => setIsPdfModalOpen(true)}
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 sm:px-3.5 sm:py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-2xs transition-all cursor-pointer"
+              title="Abrir visor interactivo del currículum original en la web"
+            >
+              <FileText className="w-4 h-4" />
+              <span className="hidden xs:inline">Ver CV</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('pdf')}
+              className={`flex items-center space-x-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                activeTab === 'pdf'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+              }`}
+              title="Ver informe pre-entrevista generado en el visor web"
+            >
+              <FileCheck className="w-4 h-4" />
+              <span className="hidden xs:inline">Ver Expediente</span>
+            </button>
+
+            <button
               onClick={handleDownloadPdf}
               disabled={isDownloading}
-              className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 text-xs sm:text-sm font-semibold rounded-lg transition-all disabled:opacity-50 cursor-pointer"
+              className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 sm:px-3 sm:py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 text-xs sm:text-sm font-semibold rounded-lg transition-all disabled:opacity-50 cursor-pointer"
+              title="Descargar archivo PDF oficial del expediente"
             >
               {isDownloading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Download className="w-4 h-4" />
               )}
-              <span>Descargar PDF</span>
+              <span>Descargar</span>
             </button>
 
             <button
@@ -198,14 +231,14 @@ export const EvaluatorReviewModal: React.FC<EvaluatorReviewModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('cv')}
-              className={`flex-1 min-w-[130px] sm:min-w-0 flex items-center justify-center space-x-2 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+              className={`flex-1 min-w-[140px] sm:min-w-0 flex items-center justify-center space-x-2 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
                 activeTab === 'cv'
                   ? 'bg-white text-slate-900 shadow-sm font-bold'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
               <Briefcase className={`w-4 h-4 flex-shrink-0 ${activeTab === 'cv' ? 'text-slate-900' : 'text-slate-500'}`} />
-              <span className="truncate">1. CV y Perfil</span>
+              <span className="truncate">1. Síntesis & CV Original</span>
               {candidate.cvAnalysis?.warnings && candidate.cvAnalysis.warnings.length > 0 && (
                 <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" title="Contiene alertas de validación o integridad"></span>
               )}
@@ -221,7 +254,7 @@ export const EvaluatorReviewModal: React.FC<EvaluatorReviewModalProps> = ({
               }`}
             >
               <Compass className={`w-4 h-4 flex-shrink-0 ${activeTab === 'disc' ? 'text-slate-900' : 'text-slate-500'}`} />
-              <span className="truncate">2. Perfil DISC</span>
+              <span className="truncate">2. Perfil Psicométrico</span>
             </button>
 
             <button
@@ -247,7 +280,7 @@ export const EvaluatorReviewModal: React.FC<EvaluatorReviewModalProps> = ({
               }`}
             >
               <FileCheck className={`w-4 h-4 flex-shrink-0 ${activeTab === 'decision' ? 'text-emerald-700' : 'text-emerald-600'}`} />
-              <span className="truncate">4. Dictamen</span>
+              <span className="truncate">4. Dictamen RRHH</span>
               {candidate.evaluatorDecision && candidate.evaluatorDecision !== 'Pending' && (
                 <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
               )}
@@ -281,6 +314,7 @@ export const EvaluatorReviewModal: React.FC<EvaluatorReviewModalProps> = ({
             <CvAnalysisTab
               candidate={candidate}
               onNext={() => setActiveTab('disc')}
+              onOpenPdfModal={() => setIsPdfModalOpen(true)}
             />
           )}
 
@@ -363,6 +397,14 @@ export const EvaluatorReviewModal: React.FC<EvaluatorReviewModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Visor Web Embebido del CV Original */}
+      <PdfViewerModal
+        isOpen={isPdfModalOpen}
+        candidateId={candidate.id}
+        candidateName={`${candidate.firstName} ${candidate.lastName}`}
+        onClose={() => setIsPdfModalOpen(false)}
+      />
     </div>
   );
 };

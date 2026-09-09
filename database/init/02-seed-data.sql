@@ -68,7 +68,7 @@ VALUES (
     '11111111-1111-1111-1111-222222222222',
     '11111111-1111-1111-1111-111111111111',
     'CV_Sofia_Valenzuela_TechLead.pdf',
-    '/app/Storage/CV_Sofia_Valenzuela_TechLead.pdf',
+    'CV_Sofia_Valenzuela_TechLead.pdf',
     184500,
     'application/pdf',
     NOW() - INTERVAL '2 days'
@@ -268,7 +268,7 @@ VALUES (
     '22222222-2222-2222-2222-222222222222',
     '22222222-2222-2222-2222-111111111111',
     'CV_Carlos_Mendoza_Backend.pdf',
-    '/app/Storage/CV_Carlos_Mendoza_Backend.pdf',
+    'CV_Carlos_Mendoza_Backend.pdf',
     162000,
     'application/pdf',
     NOW() - INTERVAL '1 day'
@@ -466,7 +466,7 @@ VALUES (
     '33333333-3333-3333-3333-222222222222',
     '33333333-3333-3333-3333-111111111111',
     'CV_Valeria_Herrera_Fullstack.pdf',
-    '/app/Storage/CV_Valeria_Herrera_Fullstack.pdf',
+    'CV_Valeria_Herrera_Fullstack.pdf',
     171000,
     'application/pdf',
     NOW() - INTERVAL '18 hours'
@@ -664,7 +664,7 @@ VALUES (
     '44444444-4444-4444-4444-222222222222',
     '44444444-4444-4444-4444-111111111111',
     'CV_Alejandro_Gomez_DevOps.pdf',
-    '/app/Storage/CV_Alejandro_Gomez_DevOps.pdf',
+    'CV_Alejandro_Gomez_DevOps.pdf',
     195000,
     'application/pdf',
     NOW() - INTERVAL '12 hours'
@@ -863,7 +863,7 @@ VALUES (
     '55555555-5555-5555-5555-222222222222',
     '55555555-5555-5555-5555-111111111111',
     'CV_Mariana_Pineda_DataEngineer.pdf',
-    '/app/Storage/CV_Mariana_Pineda_DataEngineer.pdf',
+    'CV_Mariana_Pineda_DataEngineer.pdf',
     178000,
     'application/pdf',
     NOW() - INTERVAL '6 hours'
@@ -1061,7 +1061,7 @@ VALUES (
     '66666666-6666-6666-6666-222222222222',
     '66666666-6666-6666-6666-111111111111',
     'CV_David_Rangel_QA_Automation.pdf',
-    '/app/Storage/CV_David_Rangel_QA_Automation.pdf',
+    'CV_David_Rangel_QA_Automation.pdf',
     155000,
     'application/pdf',
     NOW() - INTERVAL '2 hours'

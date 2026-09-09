@@ -219,6 +219,25 @@ public class DocumentsController : ApiControllerBase
         var result = await _uploadHandler.HandleAsync(command, cancellationToken);
         return HandleResult(result);
     }
+
+    [HttpGet("cv/{candidateId:guid}")]
+    [ProducesResponseType(typeof(FileStreamResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCandidateCv(
+        [FromRoute] Guid candidateId,
+        [FromServices] GetCandidateCvDocumentQueryHandler queryHandler,
+        CancellationToken cancellationToken)
+    {
+        var result = await queryHandler.HandleAsync(new GetCandidateCvDocumentQuery(candidateId), cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return HandleResult(result);
+        }
+
+        var doc = result.Value;
+        Response.Headers.Append("Content-Disposition", $"inline; filename=\"{doc.FileName}\"");
+        return File(doc.Stream, doc.ContentType, enableRangeProcessing: true);
+    }
 }
 
 [Authorize]
@@ -298,6 +317,7 @@ public class ReportsController : ApiControllerBase
     [HttpGet("download/{candidateId:guid}")]
     public async Task<IActionResult> DownloadReportPdf(
         [FromRoute] Guid candidateId,
+        [FromQuery] bool inline,
         [FromServices] GetReportPdfQueryHandler pdfQueryHandler,
         CancellationToken cancellationToken)
     {
@@ -314,7 +334,22 @@ public class ReportsController : ApiControllerBase
             };
         }
 
+        if (inline)
+        {
+            Response.Headers.Append("Content-Disposition", $"inline; filename=\"informe_preentrevista_{candidateId}.pdf\"");
+            return File(result.Value, "application/pdf");
+        }
+
         return File(result.Value, "application/pdf", $"informe_preentrevista_{candidateId}.pdf");
+    }
+
+    [HttpGet("view/{candidateId:guid}")]
+    public async Task<IActionResult> ViewReportPdf(
+        [FromRoute] Guid candidateId,
+        [FromServices] GetReportPdfQueryHandler pdfQueryHandler,
+        CancellationToken cancellationToken)
+    {
+        return await DownloadReportPdf(candidateId, inline: true, pdfQueryHandler, cancellationToken);
     }
 }
 

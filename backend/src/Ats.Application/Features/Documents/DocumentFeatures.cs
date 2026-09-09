@@ -88,3 +88,60 @@ public class UploadCvCommandHandler
     }
 }
 
+public record CvDocumentFileDto(
+    Stream Stream,
+    string FileName,
+    string ContentType,
+    long FileSizeBytes);
+
+public record GetCandidateCvDocumentQuery(Guid CandidateId);
+
+public class GetCandidateCvDocumentQueryHandler
+{
+    private readonly ICandidateRepository _candidateRepository;
+    private readonly IDocumentStorageService _storageService;
+
+    public GetCandidateCvDocumentQueryHandler(
+        ICandidateRepository candidateRepository,
+        IDocumentStorageService storageService)
+    {
+        _candidateRepository = candidateRepository;
+        _storageService = storageService;
+    }
+
+    public async Task<Result<CvDocumentFileDto>> HandleAsync(
+        GetCandidateCvDocumentQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        var candidate = await _candidateRepository.GetByIdAsync(query.CandidateId, cancellationToken);
+        if (candidate is null)
+        {
+            return Result.Failure<CvDocumentFileDto>(
+                Error.NotFound("Candidate.NotFound", $"No se encontró el candidato con ID {query.CandidateId}."));
+        }
+
+        var document = candidate.Documents
+            .OrderByDescending(d => d.UploadedAtUtc)
+            .FirstOrDefault();
+
+        if (document is null)
+        {
+            return Result.Failure<CvDocumentFileDto>(
+                Error.NotFound("CvDocument.NotFound", $"El candidato {candidate.FirstName} {candidate.LastName} no tiene un documento curricular registrado."));
+        }
+
+        var stream = await _storageService.GetFileAsync(document.StoragePath, cancellationToken);
+        if (stream is null)
+        {
+            return Result.Failure<CvDocumentFileDto>(
+                Error.NotFound("CvDocument.FileNotFound", $"El archivo {document.FileName} no se encuentra disponible en el almacenamiento."));
+        }
+
+        return Result.Success(new CvDocumentFileDto(
+            stream,
+            document.FileName,
+            string.IsNullOrWhiteSpace(document.ContentType) ? "application/pdf" : document.ContentType,
+            document.FileSizeBytes));
+    }
+}
+

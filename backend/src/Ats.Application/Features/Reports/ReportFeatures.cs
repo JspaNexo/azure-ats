@@ -49,13 +49,15 @@ public class GenerateInterviewReportCommandHandler
         _assessmentRepository = assessmentRepository;
     }
 
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
     public async Task<Result<InterviewReportDto>> HandleAsync(GenerateInterviewReportCommand command, CancellationToken cancellationToken = default)
     {
         // 1. Check if candidate already has a generated report (Cache / Token Guard)
         var existingReport = await _reportRepository.GetByCandidateIdAsync(command.CandidateId, cancellationToken);
         if (existingReport is not null && existingReport.Status == ReportStatus.Generated && !string.IsNullOrEmpty(existingReport.ReportContentJson))
         {
-            var cachedDto = JsonSerializer.Deserialize<InterviewReportDto>(existingReport.ReportContentJson);
+            var cachedDto = JsonSerializer.Deserialize<InterviewReportDto>(existingReport.ReportContentJson, JsonOptions);
             if (cachedDto is not null) return Result.Success(cachedDto);
         }
 
@@ -65,7 +67,7 @@ public class GenerateInterviewReportCommandHandler
         {
             if (existingReport is not null && !string.IsNullOrEmpty(existingReport.ReportContentJson))
             {
-                var cachedDto = JsonSerializer.Deserialize<InterviewReportDto>(existingReport.ReportContentJson);
+                var cachedDto = JsonSerializer.Deserialize<InterviewReportDto>(existingReport.ReportContentJson, JsonOptions);
                 if (cachedDto is not null) return Result.Success(cachedDto);
             }
         }
@@ -167,7 +169,7 @@ public class GenerateInterviewReportCommandHandler
                 ProfessionalQuestions: questionsResult.Value.ProfessionalQuestions ?? [],
                 TechnicalQuestions: questionsResult.Value.TechnicalQuestions ?? [],
                 BehavioralQuestions: questionsResult.Value.BehavioralQuestions ?? []),
-            Disclaimer: "Este informe sirve como herramienta de apoyo para la entrevista y no reemplaza el criterio profesional del reclutador ni realiza diagnosticos psicologicos.");
+            Disclaimer: "Dossier utilitario de asistencia técnica para Recursos Humanos. Generado mediante IA exclusivamente como insumo de lectura y estructuración de preguntas pre-entrevista. No constituye una evaluación de desempeño, calificación ni decisión vinculante de contratación. La revisión del currículum original y la decisión corresponden exclusivamente al evaluador humano de Recursos Humanos.");
 
         // 5. Render PDF Document
         var pdfResult = await _documentRenderer.RenderReportPdfAsync(reportDto, cancellationToken);
@@ -218,6 +220,7 @@ public record GetInterviewReportQuery(Guid CandidateId);
 
 public class GetInterviewReportQueryHandler
 {
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
     private readonly IInterviewReportRepository _reportRepository;
 
     public GetInterviewReportQueryHandler(IInterviewReportRepository reportRepository)
@@ -240,7 +243,7 @@ public class GetInterviewReportQueryHandler
                 Error.Validation("Report.NotGenerated", $"El informe esta en estado '{report.Status}' y aun no ha finalizado su generacion."));
         }
 
-        var dto = JsonSerializer.Deserialize<InterviewReportDto>(report.ReportContentJson);
+        var dto = JsonSerializer.Deserialize<InterviewReportDto>(report.ReportContentJson, JsonOptions);
         if (dto is null)
         {
             return Result.Failure<InterviewReportDto>(
@@ -255,6 +258,7 @@ public record GetReportPdfQuery(Guid CandidateId);
 
 public class GetReportPdfQueryHandler
 {
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
     private readonly IDocumentStorageService _storageService;
     private readonly IInterviewReportRepository _reportRepository;
     private readonly IReportDocumentRenderer _documentRenderer;
@@ -290,7 +294,7 @@ public class GetReportPdfQueryHandler
 
         if (!string.IsNullOrWhiteSpace(report.ReportContentJson))
         {
-            var dto = JsonSerializer.Deserialize<InterviewReportDto>(report.ReportContentJson);
+            var dto = JsonSerializer.Deserialize<InterviewReportDto>(report.ReportContentJson, JsonOptions);
             if (dto is not null)
             {
                 var renderResult = await _documentRenderer.RenderReportPdfAsync(dto, cancellationToken);

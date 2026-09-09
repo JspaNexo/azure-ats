@@ -247,13 +247,13 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
             </div>
             <div className="space-y-1.5 max-w-md">
               <h4 className="text-base font-bold text-slate-900">
-                Procesando Candidato con IA
+                Preparando Expediente Pre-Entrevista
               </h4>
               <p className="text-xs text-slate-600 font-medium animate-pulse">
                 {processingStep}
               </p>
               <p className="text-[11px] text-slate-400 mt-2">
-                Este proceso ejecuta el análisis de experiencia, validación de evidencia, interpretación DISC y redacción de la guía STAR en tiempo real.
+                La IA extrae datos del CV, coteja requisitos declarados y estructura la guía de entrevista para la evaluación del profesional de RRHH.
               </p>
             </div>
           </div>
@@ -482,7 +482,7 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
         {!isProcessing && (
           <div className="px-4 sm:px-6 py-3 sm:py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <span className="text-[11px] sm:text-xs text-slate-500 text-center sm:text-left">
-              Evaluación asistida por Google Gemini AI
+              Asistencia documental pre-entrevista con Google Gemini AI
             </span>
             <div className="flex items-center space-x-2.5 w-full sm:w-auto">
               <button
@@ -498,7 +498,7 @@ export const UploadCandidateModal: React.FC<UploadCandidateModalProps> = ({
                 className="flex-1 sm:flex-none px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>Evaluar con IA</span>
+                <span>Generar Expediente Pre-Entrevista</span>
               </button>
             </div>
           </div>

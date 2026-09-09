@@ -66,7 +66,7 @@ export const QuickStartGuide: React.FC = () => {
                   </div>
                   <h4 className="text-xs font-bold text-slate-900">Revisa las Postulaciones</h4>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
-                    La IA analiza automáticamente el CV y calcula el porcentaje de compatibilidad y el perfil conductual DISC de cada postulante.
+                    La IA extrae información factual del CV, coteja requisitos técnicos declarados frente a la vacante y prepara el dossier con preguntas de apoyo para el entrevistador.
                   </p>
                 </div>
                 <div className="text-[10px] font-semibold text-slate-500 flex items-center space-x-1">
@@ -141,9 +141,9 @@ export const QuickStartGuide: React.FC = () => {
                     </span>
                     <Compass className="w-4 h-4 text-slate-700" />
                   </div>
-                  <h4 className="text-xs font-bold text-slate-900">Aplica la Guía STAR</h4>
+                  <h4 className="text-xs font-bold text-slate-900">Revisa el CV y Aplica la Guía STAR</h4>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Abre el expediente pulsando <strong className="text-slate-800">"Ver Expediente"</strong> para consultar el resumen del CV, el perfil conductual DISC y las preguntas de entrevista situacionales.
+                    Revisa el documento original pulsando <strong className="text-slate-800">"Ver CV"</strong> o abre el expediente para consultar la síntesis asistida, el perfil psicométrico y las preguntas situacionales STAR.
                   </p>
                 </div>
                 <div className="text-[10px] font-semibold text-slate-700 flex items-center space-x-1">

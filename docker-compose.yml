@@ -62,7 +62,7 @@ services:
       - Authentication__ValidIssuer=http://localhost:8085/realms/ats-realm
       - Authentication__Audience=ats-backend
     volumes:
-      - backend_storage:/app/Storage
+      - ./storage:/app/Storage
     depends_on:
       postgres:
         condition: service_healthy
@@ -143,5 +143,4 @@ networks:
 volumes:
   postgres_data:
   seq_data:
-  backend_storage:
   n8n_data:

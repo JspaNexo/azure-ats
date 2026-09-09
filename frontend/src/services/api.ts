@@ -200,6 +200,30 @@ export const api = {
     return handleResponse<any>(res);
   },
 
+  async getCvPdfBlob(candidateId: string): Promise<Blob> {
+    const res = await fetchWithAuth(`${API_BASE}/documents/cv/${candidateId}`);
+    if (!res.ok) {
+      throw new ApiError(res.status, 'No se pudo obtener el currículum original del candidato.');
+    }
+    return res.blob();
+  },
+
+  async downloadOriginalCv(candidateId: string, fallbackFileName = 'curriculum_original.pdf'): Promise<void> {
+    const res = await fetchWithAuth(`${API_BASE}/documents/cv/${candidateId}`);
+    if (!res.ok) {
+      throw new ApiError(res.status, 'Error al descargar el documento curricular original.');
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fallbackFileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
   // DISC Profiles
   async getDiscProfile(candidateId: string): Promise<any> {
     const res = await fetchWithAuth(`${API_BASE}/disc/candidate/${candidateId}`);
@@ -257,8 +281,20 @@ export const api = {
     return res.blob();
   },
 
+  async getReportPdfBlob(candidateId: string): Promise<Blob> {
+    const res = await fetchWithAuth(`${API_BASE}/reports/view/${candidateId}`);
+    if (!res.ok) {
+      throw new ApiError(res.status, 'Error al obtener el expediente PDF para visualización');
+    }
+    return res.blob();
+  },
+
   getReportDownloadUrl(candidateId: string): string {
     return `${API_BASE}/reports/download/${candidateId}`;
+  },
+
+  getReportViewUrl(candidateId: string): string {
+    return `${API_BASE}/reports/view/${candidateId}`;
   },
 
   // Webhooks / AI Simulation triggers

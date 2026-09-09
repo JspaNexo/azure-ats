@@ -8,10 +8,12 @@ import {
   SlidersHorizontal,
   UserCheck,
   RotateCcw,
-  SearchX
+  SearchX,
+  FileText
 } from 'lucide-react';
 import { Candidate } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { PdfViewerModal } from './PdfViewerModal';
 
 interface EvaluatorCandidateDashboardProps {
   candidates: Candidate[];
@@ -37,6 +39,7 @@ export const EvaluatorCandidateDashboard = ({
   const [selectedDecision, setSelectedDecision] = useState<string>('ALL');
   const [activeTab, setActiveTab] = useState<string>(isRecruiter ? 'MINE' : 'ALL');
   const [sortBy, setSortBy] = useState<'match' | 'recent'>('match');
+  const [selectedPdfCandidate, setSelectedPdfCandidate] = useState<Candidate | null>(null);
 
   // Extract unique target roles
   const uniqueRoles = useMemo(() => {
@@ -385,9 +388,12 @@ export const EvaluatorCandidateDashboard = ({
                             {c.firstName} {c.lastName}
                           </button>
 
-                          {/* Match Score */}
-                          <span className="text-[11px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 px-2 sm:px-2.5 py-0.5 rounded-md flex-shrink-0 border border-emerald-200/60">
-                            {c.matchScore || 90}% match
+                          {/* Cotejo de Requisitos */}
+                          <span
+                            className="text-[11px] sm:text-xs font-bold text-emerald-800 bg-emerald-50 px-2 sm:px-2.5 py-0.5 rounded-md flex-shrink-0 border border-emerald-200"
+                            title="Cotejo informativo de tecnologías y experiencia detectadas en el CV frente a los requisitos del cargo. No constituye una evaluación ni calificación."
+                          >
+                            Cotejo: {c.matchScore ?? 0}% requisitos
                           </span>
                         </div>
 
@@ -461,14 +467,25 @@ export const EvaluatorCandidateDashboard = ({
                           </button>
                         )}
 
+                        {/* Quick Original CV Viewer Button */}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPdfCandidate(c)}
+                          className="px-2.5 py-1.5 sm:py-2 text-slate-700 hover:text-blue-700 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center space-x-1.5 cursor-pointer flex-shrink-0"
+                          title="Visualizar currículum original (PDF) en la web sin descargarlo"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-blue-600" />
+                          <span className="hidden sm:inline">Ver CV</span>
+                        </button>
+
                         {/* Dossier Review Button */}
                         <button
                           type="button"
                           onClick={() => onSelectCandidate(c)}
-                          className="px-3 sm:px-3.5 py-1.5 sm:py-2 bg-slate-100 hover:bg-slate-900 hover:text-white text-slate-800 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer flex-shrink-0"
+                          className="px-3 sm:px-3.5 py-1.5 sm:py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer flex-shrink-0"
                         >
-                          <span>Ver expediente</span>
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
+                          <span>Expediente</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
                         </button>
                       </div>
                     </div>
@@ -479,6 +496,14 @@ export const EvaluatorCandidateDashboard = ({
           </div>
         ))
       )}
+
+      {/* Visor Web Directo de CV Original */}
+      <PdfViewerModal
+        isOpen={!!selectedPdfCandidate}
+        candidateId={selectedPdfCandidate?.id || null}
+        candidateName={selectedPdfCandidate ? `${selectedPdfCandidate.firstName} ${selectedPdfCandidate.lastName}` : ''}
+        onClose={() => setSelectedPdfCandidate(null)}
+      />
     </div>
   );
 };
