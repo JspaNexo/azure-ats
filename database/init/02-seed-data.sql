@@ -1,17 +1,66 @@
--- Limpieza de datos previos de prueba
-TRUNCATE TABLE processing_jobs, candidate_interview_reports, candidate_disc_interpretations, candidate_disc_results, candidate_cv_analyses, cv_documents, candidates CASCADE;
+-- =========================================================================================
+-- 02-seed-data.sql: Datos Semilla Iniciales y Realistas (DML) de TalentIQ Enterprise ATS
+-- Carga vacantes activas, candidatos completos con perfiles, CVs, evaluaciones y reportes.
+-- =========================================================================================
+
+-- Limpieza preventiva de datos previos
+TRUNCATE TABLE 
+    processing_jobs, 
+    candidate_interview_reports, 
+    candidate_assessment_interpretations, 
+    candidate_assessments, 
+    candidate_disc_interpretations, 
+    candidate_disc_results, 
+    candidate_cv_analyses, 
+    cv_documents, 
+    candidates, 
+    job_positions 
+CASCADE;
+
+-- =========================================================================================
+-- VACANTES ACTIVAS (JOB POSITIONS)
+-- =========================================================================================
+INSERT INTO job_positions (id, title, department, seniority, min_experience_years, description, requirements, status)
+VALUES
+    ('11111111-2222-3333-4444-555555555501', 'Senior Backend Engineer', 'Tecnología & Arquitectura', 'Senior', 5, 
+     'Responsable de diseñar, desarrollar y optimizar microservicios de alto rendimiento y APIs transaccionales.', 
+     'C#, .NET Core, PostgreSQL, Docker, Kubernetes, Arquitectura Limpia, Microservicios.', 'Active'),
+    ('11111111-2222-3333-4444-555555555502', 'Lead Cloud Architect', 'Infraestructura Cloud', 'Lead', 7, 
+     'Liderar la estrategia de infraestructura multicloud, observabilidad, seguridad y alta disponibilidad.', 
+     'Azure, AWS, Terraform, Kubernetes, Seguridad Cloud, CI/CD, Monitoreo y Observabilidad.', 'Active'),
+    ('11111111-2222-3333-4444-555555555503', 'Data Engineer', 'Datos & Analítica', 'Senior', 4, 
+     'Construcción y orquestación de pipelines de datos masivos, modelos analíticos y gobernanza de datos.', 
+     'Python, SQL, PostgreSQL, BigQuery, Airflow, Spark, Modelado de Datos.', 'Active'),
+    ('11111111-2222-3333-4444-555555555504', 'Fullstack Developer', 'Desarrollo de Software', 'Semi-Senior', 3, 
+     'Desarrollo integral de módulos web modernos, integración con APIs RESTful y experiencia de usuario fluida.', 
+     'TypeScript, React, Node.js / .NET, Tailwind CSS, PostgreSQL, Git.', 'Active')
+ON CONFLICT (id) DO NOTHING;
 
 -- =========================================================================================
 -- CANDIDATO 1: Sofía Valenzuela Navarro - Tech Lead / Software Architect (.NET & Cloud)
 -- =========================================================================================
-INSERT INTO candidates ("Id", "FirstName", "LastName", email, "PhoneNumber", "CreatedAtUtc")
-VALUES (
+INSERT INTO candidates (
+    "Id", "FirstName", "LastName", email, "PhoneNumber",
+    "EvaluatorDecision", "EvaluatorNotes", "EvaluatedAtUtc",
+    assignedrecruiterid, assignedrecruitername, assignedrecruiteremail, assignedatutc,
+    target_role, job_position_id, "CreatedAtUtc"
+) VALUES (
     '11111111-1111-1111-1111-111111111111',
     'Sofía',
     'Valenzuela Navarro',
     'sofia.valenzuela@techlead.dev',
     '+1 (809) 555-4321',
+    'Approved',
+    'Perfil de clase mundial con excelente visión técnica y liderazgo.',
+    NOW() - INTERVAL '1 day',
+    'laura.sanchez',
+    'Laura Sánchez',
+    'laura.sanchez@empresa.com',
+    NOW() - INTERVAL '2 days',
+    'Lead Cloud Architect',
+    '11111111-2222-3333-4444-555555555502',
     NOW() - INTERVAL '2 days'
+
 );
 
 INSERT INTO cv_documents ("Id", "CandidateId", "FileName", "StoragePath", "FileSizeBytes", "ContentType", "UploadedAtUtc")
@@ -190,14 +239,28 @@ VALUES (
 -- =========================================================================================
 -- CANDIDATO 2: Carlos Mendoza Rivas - Senior Backend Developer (.NET & PostgreSQL)
 -- =========================================================================================
-INSERT INTO candidates ("Id", "FirstName", "LastName", email, "PhoneNumber", "CreatedAtUtc")
-VALUES (
+INSERT INTO candidates (
+    "Id", "FirstName", "LastName", email, "PhoneNumber",
+    "EvaluatorDecision", "EvaluatorNotes", "EvaluatedAtUtc",
+    assignedrecruiterid, assignedrecruitername, assignedrecruiteremail, assignedatutc,
+    target_role, job_position_id, "CreatedAtUtc"
+) VALUES (
     '22222222-2222-2222-2222-111111111111',
     'Carlos',
     'Mendoza Rivas',
     'carlos.mendoza.dev@gmail.com',
     '+1 (809) 555-8812',
+    'Pending',
+    NULL,
+    NULL,
+    'carlos.mendoza',
+    'Carlos Mendoza',
+    'carlos.mendoza@empresa.com',
+    NOW() - INTERVAL '1 day',
+    'Senior Backend Engineer',
+    '11111111-2222-3333-4444-555555555501',
     NOW() - INTERVAL '1 day'
+
 );
 
 INSERT INTO cv_documents ("Id", "CandidateId", "FileName", "StoragePath", "FileSizeBytes", "ContentType", "UploadedAtUtc")
@@ -374,14 +437,28 @@ VALUES (
 -- =========================================================================================
 -- CANDIDATO 3: Valeria Herrera Morales - Senior Fullstack Engineer (React & .NET)
 -- =========================================================================================
-INSERT INTO candidates ("Id", "FirstName", "LastName", email, "PhoneNumber", "CreatedAtUtc")
-VALUES (
+INSERT INTO candidates (
+    "Id", "FirstName", "LastName", email, "PhoneNumber",
+    "EvaluatorDecision", "EvaluatorNotes", "EvaluatedAtUtc",
+    assignedrecruiterid, assignedrecruitername, assignedrecruiteremail, assignedatutc,
+    target_role, job_position_id, "CreatedAtUtc"
+) VALUES (
     '33333333-3333-3333-3333-111111111111',
     'Valeria',
     'Herrera Morales',
     'valeria.herrera@fullstack.io',
     '+1 (829) 555-7319',
+    'Pending',
+    NULL,
+    NULL,
+    'laura.sanchez',
+    'Laura Sánchez',
+    'laura.sanchez@empresa.com',
+    NOW() - INTERVAL '18 hours',
+    'Fullstack Developer',
+    '11111111-2222-3333-4444-555555555504',
     NOW() - INTERVAL '18 hours'
+
 );
 
 INSERT INTO cv_documents ("Id", "CandidateId", "FileName", "StoragePath", "FileSizeBytes", "ContentType", "UploadedAtUtc")
@@ -558,14 +635,28 @@ VALUES (
 -- =========================================================================================
 -- CANDIDATO 4: Alejandro Gómez Castillo - DevOps & Cloud Infrastructure Engineer
 -- =========================================================================================
-INSERT INTO candidates ("Id", "FirstName", "LastName", email, "PhoneNumber", "CreatedAtUtc")
-VALUES (
+INSERT INTO candidates (
+    "Id", "FirstName", "LastName", email, "PhoneNumber",
+    "EvaluatorDecision", "EvaluatorNotes", "EvaluatedAtUtc",
+    assignedrecruiterid, assignedrecruitername, assignedrecruiteremail, assignedatutc,
+    target_role, job_position_id, "CreatedAtUtc"
+) VALUES (
     '44444444-4444-4444-4444-111111111111',
     'Alejandro',
     'Gómez Castillo',
     'alejandro.gomez@cloudinfra.net',
     '+1 (809) 555-9044',
+    'Pending',
+    NULL,
+    NULL,
+    'carlos.mendoza',
+    'Carlos Mendoza',
+    'carlos.mendoza@empresa.com',
+    NOW() - INTERVAL '10 hours',
+    'Lead Cloud Architect',
+    '11111111-2222-3333-4444-555555555502',
     NOW() - INTERVAL '12 hours'
+
 );
 
 INSERT INTO cv_documents ("Id", "CandidateId", "FileName", "StoragePath", "FileSizeBytes", "ContentType", "UploadedAtUtc")
@@ -743,14 +834,28 @@ VALUES (
 -- =========================================================================================
 -- CANDIDATO 5: Mariana Pineda Ruiz - Senior Data Engineer & Analytics
 -- =========================================================================================
-INSERT INTO candidates ("Id", "FirstName", "LastName", email, "PhoneNumber", "CreatedAtUtc")
-VALUES (
+INSERT INTO candidates (
+    "Id", "FirstName", "LastName", email, "PhoneNumber",
+    "EvaluatorDecision", "EvaluatorNotes", "EvaluatedAtUtc",
+    assignedrecruiterid, assignedrecruitername, assignedrecruiteremail, assignedatutc,
+    target_role, job_position_id, "CreatedAtUtc"
+) VALUES (
     '55555555-5555-5555-5555-111111111111',
     'Mariana',
     'Pineda Ruiz',
     'mariana.pineda@dataops.tech',
     '+1 (849) 555-3210',
+    'Pending',
+    NULL,
+    NULL,
+    'laura.sanchez',
+    'Laura Sánchez',
+    'laura.sanchez@empresa.com',
+    NOW() - INTERVAL '6 hours',
+    'Data Engineer',
+    '11111111-2222-3333-4444-555555555503',
     NOW() - INTERVAL '6 hours'
+
 );
 
 INSERT INTO cv_documents ("Id", "CandidateId", "FileName", "StoragePath", "FileSizeBytes", "ContentType", "UploadedAtUtc")
@@ -927,14 +1032,28 @@ VALUES (
 -- =========================================================================================
 -- CANDIDATO 6: David Rangel Soto - QA Automation Engineer (SDET)
 -- =========================================================================================
-INSERT INTO candidates ("Id", "FirstName", "LastName", email, "PhoneNumber", "CreatedAtUtc")
-VALUES (
+INSERT INTO candidates (
+    "Id", "FirstName", "LastName", email, "PhoneNumber",
+    "EvaluatorDecision", "EvaluatorNotes", "EvaluatedAtUtc",
+    assignedrecruiterid, assignedrecruitername, assignedrecruiteremail, assignedatutc,
+    target_role, job_position_id, "CreatedAtUtc"
+) VALUES (
     '66666666-6666-6666-6666-111111111111',
     'David',
     'Rangel Soto',
     'david.rangel.qa@testing.dev',
     '+1 (809) 555-6123',
+    'Pending',
+    NULL,
+    NULL,
+    'carlos.mendoza',
+    'Carlos Mendoza',
+    'carlos.mendoza@empresa.com',
+    NOW() - INTERVAL '2 hours',
+    'Senior Backend Engineer',
+    '11111111-2222-3333-4444-555555555501',
     NOW() - INTERVAL '2 hours'
+
 );
 
 INSERT INTO cv_documents ("Id", "CandidateId", "FileName", "StoragePath", "FileSizeBytes", "ContentType", "UploadedAtUtc")
@@ -1107,3 +1226,43 @@ VALUES (
     NOW() - INTERVAL '2 hours',
     NOW() - INTERVAL '2 hours'
 );
+-- =========================================================================================
+-- POBLADO INICIAL DEL MÓDULO DE EVALUACIONES PSICOMÉTRICAS GENÉRICAS
+-- Sincroniza las evaluaciones de los 6 candidatos hacia candidate_assessments y candidate_assessment_interpretations
+-- =========================================================================================
+INSERT INTO candidate_assessments ("Id", "CandidateId", assessment_type, scores_assessment_type, primary_style, dimensions_json, completed_at_utc)
+SELECT 
+    d."Id",
+    d."CandidateId",
+    'DISC',
+    'DISC',
+    COALESCE(d.primary_style, 'D/C'),
+    jsonb_build_object(
+        'Dominance', d.dominance,
+        'Influence', d.influence,
+        'Steadiness', d.steadiness,
+        'Conscientiousness', d.conscientiousness
+    ),
+    d."CompletedAtUtc"
+FROM candidate_disc_results d
+ON CONFLICT ("Id") DO NOTHING;
+
+INSERT INTO candidate_assessment_interpretations (
+    "Id", "CandidateId", "AssessmentId", assessment_type, interpretation_json, 
+    status, provider_name, model_name, prompt_version, created_at_utc, updated_at_utc
+)
+SELECT 
+    i."Id",
+    i."CandidateId",
+    i."DiscResultId",
+    'DISC',
+    i."InterpretationJson",
+    i."Status",
+    i."ProviderName",
+    i."ModelName",
+    i."PromptVersion",
+    i."CreatedAtUtc",
+    i."CreatedAtUtc"
+FROM candidate_disc_interpretations i
+JOIN candidate_assessments ca ON ca."Id" = i."DiscResultId"
+ON CONFLICT ("Id") DO NOTHING;

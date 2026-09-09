@@ -174,12 +174,13 @@ public class CandidateAssessmentConfiguration : IEntityTypeConfiguration<Candida
         builder.ToTable("candidate_assessments");
         builder.HasKey(a => a.Id);
 
-        builder.Property(a => a.AssessmentType).HasMaxLength(50).IsRequired();
-        builder.Property(a => a.RawResultsJson).HasColumnType("jsonb");
+        builder.Property(a => a.AssessmentType).HasColumnName("assessment_type").HasMaxLength(50).IsRequired();
+        builder.Property(a => a.RawResultsJson).HasColumnName("raw_results_json").HasColumnType("jsonb");
+        builder.Property(a => a.CompletedAtUtc).HasColumnName("completed_at_utc").IsRequired();
 
         builder.OwnsOne(a => a.Scores, scoresBuilder =>
         {
-            scoresBuilder.Property(s => s.AssessmentType).HasColumnName("assessment_type").HasMaxLength(50).IsRequired();
+            scoresBuilder.Property(s => s.AssessmentType).HasColumnName("scores_assessment_type").HasMaxLength(50);
             scoresBuilder.Property(s => s.PrimaryStyle).HasColumnName("primary_style").HasMaxLength(50).IsRequired();
             scoresBuilder.Property(s => s.Dimensions)
                 .HasColumnName("dimensions_json")
@@ -206,12 +207,15 @@ public class AssessmentInterpretationConfiguration : IEntityTypeConfiguration<As
         builder.ToTable("candidate_assessment_interpretations");
         builder.HasKey(i => i.Id);
 
-        builder.Property(i => i.AssessmentType).HasMaxLength(50).IsRequired();
-        builder.Property(i => i.InterpretationJson).HasColumnType("jsonb").IsRequired();
-        builder.Property(i => i.Status).HasConversion<string>().HasMaxLength(30).IsRequired();
-        builder.Property(i => i.ProviderName).HasMaxLength(50).IsRequired();
-        builder.Property(i => i.ModelName).HasMaxLength(50).IsRequired();
-        builder.Property(i => i.PromptVersion).HasMaxLength(20).IsRequired();
+        builder.Property(i => i.AssessmentType).HasColumnName("assessment_type").HasMaxLength(50).IsRequired();
+        builder.Property(i => i.InterpretationJson).HasColumnName("interpretation_json").HasColumnType("jsonb").IsRequired();
+        builder.Property(i => i.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(30).IsRequired();
+        builder.Property(i => i.ProviderName).HasColumnName("provider_name").HasMaxLength(50).IsRequired();
+        builder.Property(i => i.ModelName).HasColumnName("model_name").HasMaxLength(50).IsRequired();
+        builder.Property(i => i.PromptVersion).HasColumnName("prompt_version").HasMaxLength(20).IsRequired();
+        builder.Property(i => i.ErrorMessage).HasColumnName("error_message");
+        builder.Property(i => i.CreatedAtUtc).HasColumnName("created_at_utc").IsRequired();
+        builder.Property(i => i.UpdatedAtUtc).HasColumnName("updated_at_utc");
 
         builder.HasIndex(i => i.CandidateId);
 
