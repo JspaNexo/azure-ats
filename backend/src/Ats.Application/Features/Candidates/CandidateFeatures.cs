@@ -37,15 +37,30 @@ public class RegisterCandidateCommandHandler
 {
     private readonly ICandidateRepository _candidateRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IValidator<RegisterCandidateCommand>? _validator;
 
-    public RegisterCandidateCommandHandler(ICandidateRepository candidateRepository, IUnitOfWork unitOfWork)
+    public RegisterCandidateCommandHandler(
+        ICandidateRepository candidateRepository,
+        IUnitOfWork unitOfWork,
+        IValidator<RegisterCandidateCommand>? validator = null)
     {
         _candidateRepository = candidateRepository;
         _unitOfWork = unitOfWork;
+        _validator = validator;
     }
 
     public async Task<Result<CandidateDto>> HandleAsync(RegisterCandidateCommand command, CancellationToken cancellationToken = default)
     {
+        if (_validator != null)
+        {
+            var validationResult = await _validator.ValidateAsync(command, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                var first = validationResult.Errors[0];
+                return Result.Failure<CandidateDto>(Error.Validation(first.PropertyName, first.ErrorMessage));
+            }
+        }
+
         var emailResult = CandidateEmail.Create(command.Email);
         if (emailResult.IsFailure)
         {

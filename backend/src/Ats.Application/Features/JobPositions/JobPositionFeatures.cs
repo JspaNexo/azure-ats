@@ -39,15 +39,30 @@ public class CreateJobPositionCommandHandler
 {
     private readonly IJobPositionRepository _jobPositionRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IValidator<CreateJobPositionCommand>? _validator;
 
-    public CreateJobPositionCommandHandler(IJobPositionRepository jobPositionRepository, IUnitOfWork unitOfWork)
+    public CreateJobPositionCommandHandler(
+        IJobPositionRepository jobPositionRepository,
+        IUnitOfWork unitOfWork,
+        IValidator<CreateJobPositionCommand>? validator = null)
     {
         _jobPositionRepository = jobPositionRepository;
         _unitOfWork = unitOfWork;
+        _validator = validator;
     }
 
     public async Task<Result<JobPositionDto>> HandleAsync(CreateJobPositionCommand command, CancellationToken cancellationToken = default)
     {
+        if (_validator != null)
+        {
+            var validationResult = await _validator.ValidateAsync(command, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                var first = validationResult.Errors[0];
+                return Result.Failure<JobPositionDto>(Error.Validation(first.PropertyName, first.ErrorMessage));
+            }
+        }
+
         var positionResult = JobPosition.Create(
             command.Title,
             command.Department,

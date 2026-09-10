@@ -43,19 +43,32 @@ public class UploadCvCommandHandler
     private readonly ICandidateRepository _candidateRepository;
     private readonly IDocumentStorageService _storageService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IValidator<UploadCvCommand>? _validator;
 
     public UploadCvCommandHandler(
         ICandidateRepository candidateRepository,
         IDocumentStorageService storageService,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IValidator<UploadCvCommand>? validator = null)
     {
         _candidateRepository = candidateRepository;
         _storageService = storageService;
         _unitOfWork = unitOfWork;
+        _validator = validator;
     }
 
     public async Task<Result<UploadCvResponse>> HandleAsync(UploadCvCommand command, CancellationToken cancellationToken = default)
     {
+        if (_validator != null)
+        {
+            var validationResult = await _validator.ValidateAsync(command, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                var first = validationResult.Errors[0];
+                return Result.Failure<UploadCvResponse>(Error.Validation(first.PropertyName, first.ErrorMessage));
+            }
+        }
+
         var candidate = await _candidateRepository.GetByIdAsync(command.CandidateId, cancellationToken);
         if (candidate is null)
         {
