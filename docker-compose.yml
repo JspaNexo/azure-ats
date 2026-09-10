@@ -26,6 +26,8 @@ services:
     image: datalust/seq:latest
     container_name: ats_seq
     restart: unless-stopped
+    profiles:
+      - full
     environment:
       ACCEPT_EULA: "Y"
       SEQ_FIRSTRUN_ADMINPASSWORD: ${SEQ_ADMIN_PASSWORD:-Admin12345!}
@@ -68,6 +70,7 @@ services:
         condition: service_healthy
       seq:
         condition: service_started
+        required: false
     networks:
       - ats_network
 
@@ -90,6 +93,8 @@ services:
     image: docker.n8n.io/n8nio/n8n:latest
     container_name: ats_n8n
     restart: unless-stopped
+    profiles:
+      - full
     ports:
       - "5678:5678"
     environment:
@@ -113,6 +118,8 @@ services:
     image: quay.io/keycloak/keycloak:26.1
     container_name: ats_keycloak
     restart: unless-stopped
+    profiles:
+      - full
     command: start-dev --import-realm
     environment:
       - KC_BOOTSTRAP_ADMIN_USERNAME=admin
