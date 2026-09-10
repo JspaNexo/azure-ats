@@ -23,5 +23,23 @@ public class ApplicationDbContext : DbContext
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
     }
+
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        var aggregates = ChangeTracker
+            .Entries()
+            .Where(e => e.Entity is Ats.Domain.Common.AggregateRoot<Guid> agg && agg.GetDomainEvents().Count > 0)
+            .Select(e => (Ats.Domain.Common.AggregateRoot<Guid>)e.Entity)
+            .ToList();
+
+        var result = await base.SaveChangesAsync(cancellationToken);
+
+        foreach (var aggregate in aggregates)
+        {
+            aggregate.ClearDomainEvents();
+        }
+
+        return result;
+    }
 }
 

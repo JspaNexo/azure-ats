@@ -16,8 +16,8 @@ public class CandidateRepository : ICandidateRepository
     private readonly ApplicationDbContext _context;
     public CandidateRepository(ApplicationDbContext context) => _context = context;
     public Task<Candidate?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => _context.Candidates.Include(c => c.Documents).FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
-    public Task<Candidate?> GetByEmailAsync(string email, CancellationToken cancellationToken = default) => _context.Candidates.Include(c => c.Documents).FirstOrDefaultAsync(c => c.Email.Value == email, cancellationToken);
-    public async Task<IReadOnlyList<Candidate>> GetAllAsync(CancellationToken cancellationToken = default) => await _context.Candidates.Include(c => c.Documents).OrderByDescending(c => c.CreatedAtUtc).ToListAsync(cancellationToken);
+    public Task<Candidate?> GetByEmailAsync(string email, CancellationToken cancellationToken = default) => _context.Candidates.AsNoTracking().Include(c => c.Documents).FirstOrDefaultAsync(c => c.Email.Value == email, cancellationToken);
+    public async Task<IReadOnlyList<Candidate>> GetAllAsync(CancellationToken cancellationToken = default) => await _context.Candidates.AsNoTracking().Include(c => c.Documents).OrderByDescending(c => c.CreatedAtUtc).ToListAsync(cancellationToken);
     public async Task AddAsync(Candidate candidate, CancellationToken cancellationToken = default) => await _context.Candidates.AddAsync(candidate, cancellationToken);
     public async Task AddCvDocumentAsync(CvDocument document, CancellationToken cancellationToken = default) => await _context.CvDocuments.AddAsync(document, cancellationToken);
     public void Update(Candidate candidate)
@@ -31,12 +31,12 @@ public class CvAnalysisRepository : ICvAnalysisRepository
 {
     private readonly ApplicationDbContext _context;
     public CvAnalysisRepository(ApplicationDbContext context) => _context = context;
-    public Task<CvAnalysis?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => _context.CvAnalyses.FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
-    public Task<CvAnalysis?> GetByCandidateIdAsync(Guid candidateId, CancellationToken cancellationToken = default) => _context.CvAnalyses.OrderByDescending(a => a.CreatedAtUtc).FirstOrDefaultAsync(a => a.CandidateId == candidateId, cancellationToken);
+    public Task<CvAnalysis?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => _context.CvAnalyses.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
+    public Task<CvAnalysis?> GetByCandidateIdAsync(Guid candidateId, CancellationToken cancellationToken = default) => _context.CvAnalyses.AsNoTracking().OrderByDescending(a => a.CreatedAtUtc).FirstOrDefaultAsync(a => a.CandidateId == candidateId, cancellationToken);
     
     public async Task<IReadOnlyList<CvAnalysis>> GetByCandidateIdsAsync(IEnumerable<Guid> candidateIds, CancellationToken cancellationToken = default)
     {
-        var all = await _context.CvAnalyses.Where(a => candidateIds.Contains(a.CandidateId)).ToListAsync(cancellationToken);
+        var all = await _context.CvAnalyses.AsNoTracking().Where(a => candidateIds.Contains(a.CandidateId)).ToListAsync(cancellationToken);
         return all.GroupBy(a => a.CandidateId).Select(g => g.OrderByDescending(a => a.CreatedAtUtc).First()).ToList();
     }
     
@@ -52,19 +52,19 @@ public class DiscRepository : IDiscRepository
 {
     private readonly ApplicationDbContext _context;
     public DiscRepository(ApplicationDbContext context) => _context = context;
-    public Task<DiscResult?> GetResultByCandidateIdAsync(Guid candidateId, CancellationToken cancellationToken = default) => _context.DiscResults.OrderByDescending(d => d.CompletedAtUtc).FirstOrDefaultAsync(d => d.CandidateId == candidateId, cancellationToken);
+    public Task<DiscResult?> GetResultByCandidateIdAsync(Guid candidateId, CancellationToken cancellationToken = default) => _context.DiscResults.AsNoTracking().OrderByDescending(d => d.CompletedAtUtc).FirstOrDefaultAsync(d => d.CandidateId == candidateId, cancellationToken);
     
     public async Task<IReadOnlyList<DiscResult>> GetResultsByCandidateIdsAsync(IEnumerable<Guid> candidateIds, CancellationToken cancellationToken = default)
     {
-        var all = await _context.DiscResults.Where(d => candidateIds.Contains(d.CandidateId)).ToListAsync(cancellationToken);
+        var all = await _context.DiscResults.AsNoTracking().Where(d => candidateIds.Contains(d.CandidateId)).ToListAsync(cancellationToken);
         return all.GroupBy(d => d.CandidateId).Select(g => g.OrderByDescending(d => d.CompletedAtUtc).First()).ToList();
     }
     
-    public Task<DiscInterpretation?> GetInterpretationByCandidateIdAsync(Guid candidateId, CancellationToken cancellationToken = default) => _context.DiscInterpretations.OrderByDescending(i => i.CreatedAtUtc).FirstOrDefaultAsync(i => i.CandidateId == candidateId, cancellationToken);
+    public Task<DiscInterpretation?> GetInterpretationByCandidateIdAsync(Guid candidateId, CancellationToken cancellationToken = default) => _context.DiscInterpretations.AsNoTracking().OrderByDescending(i => i.CreatedAtUtc).FirstOrDefaultAsync(i => i.CandidateId == candidateId, cancellationToken);
     
     public async Task<IReadOnlyList<DiscInterpretation>> GetInterpretationsByCandidateIdsAsync(IEnumerable<Guid> candidateIds, CancellationToken cancellationToken = default)
     {
-        var all = await _context.DiscInterpretations.Where(i => candidateIds.Contains(i.CandidateId)).ToListAsync(cancellationToken);
+        var all = await _context.DiscInterpretations.AsNoTracking().Where(i => candidateIds.Contains(i.CandidateId)).ToListAsync(cancellationToken);
         return all.GroupBy(i => i.CandidateId).Select(g => g.OrderByDescending(i => i.CreatedAtUtc).First()).ToList();
     }
     
@@ -83,20 +83,20 @@ public class CandidateAssessmentRepository : ICandidateAssessmentRepository
     public CandidateAssessmentRepository(ApplicationDbContext context) => _context = context;
 
     public Task<CandidateAssessment?> GetResultByCandidateIdAsync(Guid candidateId, CancellationToken cancellationToken = default) =>
-        _context.CandidateAssessments.OrderByDescending(a => a.CompletedAtUtc).FirstOrDefaultAsync(a => a.CandidateId == candidateId, cancellationToken);
+        _context.CandidateAssessments.AsNoTracking().OrderByDescending(a => a.CompletedAtUtc).FirstOrDefaultAsync(a => a.CandidateId == candidateId, cancellationToken);
 
     public async Task<IReadOnlyList<CandidateAssessment>> GetResultsByCandidateIdsAsync(IEnumerable<Guid> candidateIds, CancellationToken cancellationToken = default)
     {
-        var all = await _context.CandidateAssessments.Where(a => candidateIds.Contains(a.CandidateId)).ToListAsync(cancellationToken);
+        var all = await _context.CandidateAssessments.AsNoTracking().Where(a => candidateIds.Contains(a.CandidateId)).ToListAsync(cancellationToken);
         return all.GroupBy(a => a.CandidateId).Select(g => g.OrderByDescending(a => a.CompletedAtUtc).First()).ToList();
     }
 
     public Task<AssessmentInterpretation?> GetInterpretationByCandidateIdAsync(Guid candidateId, CancellationToken cancellationToken = default) =>
-        _context.AssessmentInterpretations.OrderByDescending(i => i.CreatedAtUtc).FirstOrDefaultAsync(i => i.CandidateId == candidateId, cancellationToken);
+        _context.AssessmentInterpretations.AsNoTracking().OrderByDescending(i => i.CreatedAtUtc).FirstOrDefaultAsync(i => i.CandidateId == candidateId, cancellationToken);
 
     public async Task<IReadOnlyList<AssessmentInterpretation>> GetInterpretationsByCandidateIdsAsync(IEnumerable<Guid> candidateIds, CancellationToken cancellationToken = default)
     {
-        var all = await _context.AssessmentInterpretations.Where(i => candidateIds.Contains(i.CandidateId)).ToListAsync(cancellationToken);
+        var all = await _context.AssessmentInterpretations.AsNoTracking().Where(i => candidateIds.Contains(i.CandidateId)).ToListAsync(cancellationToken);
         return all.GroupBy(i => i.CandidateId).Select(g => g.OrderByDescending(i => i.CreatedAtUtc).First()).ToList();
     }
 
@@ -121,16 +121,16 @@ public class InterviewReportRepository : IInterviewReportRepository
 {
     private readonly ApplicationDbContext _context;
     public InterviewReportRepository(ApplicationDbContext context) => _context = context;
-    public Task<InterviewReport?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => _context.InterviewReports.FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
-    public Task<InterviewReport?> GetByCandidateIdAsync(Guid candidateId, CancellationToken cancellationToken = default) => _context.InterviewReports.OrderByDescending(r => r.CreatedAtUtc).FirstOrDefaultAsync(r => r.CandidateId == candidateId, cancellationToken);
+    public Task<InterviewReport?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => _context.InterviewReports.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+    public Task<InterviewReport?> GetByCandidateIdAsync(Guid candidateId, CancellationToken cancellationToken = default) => _context.InterviewReports.AsNoTracking().OrderByDescending(r => r.CreatedAtUtc).FirstOrDefaultAsync(r => r.CandidateId == candidateId, cancellationToken);
     
     public async Task<IReadOnlyList<InterviewReport>> GetByCandidateIdsAsync(IEnumerable<Guid> candidateIds, CancellationToken cancellationToken = default)
     {
-        var all = await _context.InterviewReports.Where(r => candidateIds.Contains(r.CandidateId)).ToListAsync(cancellationToken);
+        var all = await _context.InterviewReports.AsNoTracking().Where(r => candidateIds.Contains(r.CandidateId)).ToListAsync(cancellationToken);
         return all.GroupBy(r => r.CandidateId).Select(g => g.OrderByDescending(r => r.CreatedAtUtc).First()).ToList();
     }
     
-    public Task<InterviewReport?> GetLatestByCandidateIdAsync(Guid candidateId, CancellationToken cancellationToken = default) => _context.InterviewReports.OrderByDescending(r => r.Version).FirstOrDefaultAsync(r => r.CandidateId == candidateId, cancellationToken);
+    public Task<InterviewReport?> GetLatestByCandidateIdAsync(Guid candidateId, CancellationToken cancellationToken = default) => _context.InterviewReports.AsNoTracking().OrderByDescending(r => r.Version).FirstOrDefaultAsync(r => r.CandidateId == candidateId, cancellationToken);
     public async Task AddAsync(InterviewReport report, CancellationToken cancellationToken = default) => await _context.InterviewReports.AddAsync(report, cancellationToken);
     public void Update(InterviewReport report)
     {
@@ -157,13 +157,13 @@ public class JobPositionRepository : IJobPositionRepository
 {
     private readonly ApplicationDbContext _context;
     public JobPositionRepository(ApplicationDbContext context) => _context = context;
-    public Task<JobPosition?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => _context.JobPositions.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+    public Task<JobPosition?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => _context.JobPositions.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     
-    public async Task<IReadOnlyList<JobPosition>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default) => await _context.JobPositions.Where(p => ids.Contains(p.Id)).ToListAsync(cancellationToken);
+    public async Task<IReadOnlyList<JobPosition>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default) => await _context.JobPositions.AsNoTracking().Where(p => ids.Contains(p.Id)).ToListAsync(cancellationToken);
     
     public async Task<IReadOnlyList<JobPosition>> GetAllAsync(string? status = null, CancellationToken cancellationToken = default)
     {
-        var query = _context.JobPositions.AsQueryable();
+        var query = _context.JobPositions.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(p => p.Status == status);
         return await query.OrderByDescending(p => p.CreatedAtUtc).ToListAsync(cancellationToken);
     }
