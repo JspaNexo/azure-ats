@@ -2,7 +2,10 @@ import {
   Candidate,
   InterviewReportDto,
   Recruiter,
-  JobPosition
+  JobPosition,
+  UploadCvResponse,
+  CvDocumentDto,
+  DiscInterpretationDto
 } from '../types';
 import { keycloak } from './keycloak';
 
@@ -183,12 +186,12 @@ export const api = {
   },
 
   // CV Documents
-  async getCvDocument(candidateId: string): Promise<any> {
+  async getCvDocument(candidateId: string): Promise<CvDocumentDto> {
     const res = await fetchWithAuth(`${API_BASE}/documents/candidate/${candidateId}`);
-    return handleResponse<any>(res);
+    return handleResponse<CvDocumentDto>(res);
   },
 
-  async uploadCv(candidateId: string, file: File): Promise<any> {
+  async uploadCv(candidateId: string, file: File): Promise<UploadCvResponse> {
     const formData = new FormData();
     formData.append('candidateId', candidateId);
     formData.append('file', file);
@@ -197,7 +200,7 @@ export const api = {
       method: 'POST',
       body: formData,
     });
-    return handleResponse<any>(res);
+    return handleResponse<UploadCvResponse>(res);
   },
 
   async getCvPdfBlob(candidateId: string): Promise<Blob> {
@@ -225,9 +228,9 @@ export const api = {
   },
 
   // DISC Profiles
-  async getDiscProfile(candidateId: string): Promise<any> {
+  async getDiscProfile(candidateId: string): Promise<DiscInterpretationDto> {
     const res = await fetchWithAuth(`${API_BASE}/disc/candidate/${candidateId}`);
-    return handleResponse<any>(res);
+    return handleResponse<DiscInterpretationDto>(res);
   },
 
   async submitDisc(
@@ -239,7 +242,7 @@ export const api = {
       conscientiousness: number;
       primaryStyle?: string;
     }
-  ): Promise<any> {
+  ): Promise<string> {
     const res = await fetchWithAuth(`${API_BASE}/disc/results`, {
       method: 'POST',
       headers: {
@@ -254,7 +257,7 @@ export const api = {
         primaryStyle: payload.primaryStyle,
       }),
     });
-    return handleResponse<any>(res);
+    return handleResponse<string>(res);
   },
 
   // Reports

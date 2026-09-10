@@ -173,3 +173,30 @@ export interface UserProfile {
   email: string;
   role: 'ats_admin' | 'ats_recruiter';
 }
+
+export interface UploadCvResponse {
+  documentId: string;
+  candidateId: string;
+  fileName: string;
+  fileSizeBytes: number;
+  uploadedAtUtc: string;
+}
+
+export interface CvDocumentDto {
+  id: string;
+  candidateId: string;
+  fileName: string;
+  fileSizeBytes: number;
+  uploadedAtUtc: string;
+}
+
+export interface DiscResultDto {
+  id: string;
+  candidateId: string;
+  dominance: number;
+  influence: number;
+  steadiness: number;
+  conscientiousness: number;
+  primaryStyle: string;
+  completedAtUtc: string;
+}
