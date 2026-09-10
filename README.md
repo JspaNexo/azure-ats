@@ -20,26 +20,19 @@ ats/
 ├── backend/
 │   ├── src/
 │   │   ├── Ats.Domain/                 # Entidades de dominio (Candidate, JobPosition, etc.), Enums, ValueObjects y Eventos
-│   │   ├── Ats.Application/            # Casos de uso CQRS (Candidates, JobPositions, Ingestion, Reports), DTOs e Interfaces
 │   │   ├── Ats.Application/            # Casos de uso CQRS (Candidates, JobPositions, Ingestion, Reports, Documents), DTOs e Interfaces
 │   │   ├── Ats.Infrastructure/         # EF Core, Migraciones, Gemini AI, MockAiProvider, Storage (Local/S3), Caching y Jobs
-│   │   └── Ats.Api/                    # Controladores REST, Autenticacion JWT/Keycloak, GlobalExceptionHandler y Swagger
-│   │   └── Ats.Api/                    # Controladores REST (Candidates, Positions, Ingestion, Reports, Documents), Auth JWT/Keycloak
+│   │   └── Ats.Api/                    # Controladores REST modulares (Candidates, Positions, Ingestion, Reports, Documents, Disc, etc.)
 │   ├── tests/
 │   │   └── Ats.Tests/                  # Pruebas unitarias de seguridad, sanitizacion, scoring de calce y habilidades
 │   ├── Dockerfile                      # Multi-stage Docker build (.NET 10 SDK + ASP.NET Core Runtime)
 │   └── README.md                       # Documentacion tecnica de la capa backend
 ├── tests/
-│   ├── Ats.Domain.UnitTests/           # Pruebas unitarias del modelo de dominio y Value Objects
-│   ├── Ats.Application.UnitTests/      # Pruebas unitarias de handlers CQRS y logica de aplicacion
-│   └── Ats.ArchitectureTests/          # Pruebas de cumplimiento de arquitectura limpia (dependencias entre capas)
 │   ├── Ats.Domain.UnitTests/           # Pruebas unitarias del modelo de dominio y Value Objects (16 pruebas)
 │   ├── Ats.Application.UnitTests/      # Pruebas unitarias de handlers CQRS y logica de aplicacion (19 pruebas)
 │   └── Ats.ArchitectureTests/          # Pruebas de cumplimiento de arquitectura limpia (6 pruebas)
 ├── frontend/
 │   ├── src/
-│   │   ├── components/                 # Componentes ejecutivos (dashboard, stats, modales)
-│   │   │   └── evaluator/              # Pestanas modulares del expediente (CvAnalysis, DISC, STAR, Dictamen, PDF)
 │   │   ├── components/                 # Componentes ejecutivos (dashboard, stats, modales, visor interactivo PdfViewerModal)
 │   │   │   └── evaluator/              # Pestanas modulares del expediente (CvAnalysis & PDF, DISC, STAR, Dictamen, Informe)
 │   │   ├── context/                    # Estado de sesion Keycloak (AuthContext, proteccion de rutas y tokens)
@@ -53,7 +46,6 @@ ats/
 │   ├── realm-export.json               # Definicion del realm ats-realm, clientes, roles y usuarios
 │   └── themes/talentiq/                # Tema visual corporativo personalizado y responsivo para login
 ├── database/
-│   ├── init/                           # Scripts SQL de migracion inicial (00 al 06-job-positions)
 │   ├── init/                           # Scripts SQL unificados y consolidados (00-create-keycloak-db, 01-schema, 02-seed-data)
 │   └── README.md                       # Documentacion de persistencia relacional
 ├── automation/
@@ -152,7 +144,6 @@ El sistema valida criptograficamente los tokens JWT emitidos por Keycloak en cad
 - Conteo dinamico en tiempo real del numero de postulantes vinculados a cada vacante en el listado (`CandidateCount`).
 - Modal responsivo corporativo para alta de vacantes disponible exclusivamente para usuarios con rol `ats_admin`.
 
-### 5.2 Ingesta Directa de CV y Evaluacion Asistida por IA en Tiempo Real
 ### 5.2 Ingesta Directa de CV y Asistencia de IA en Tiempo Real
 - Modal interactivo para la carga de curriculum en formato PDF con zona drag-and-drop y validacion de tamano (maximo 15 MB).
 - Selector de vacante activa asociada al proceso de postulacion.
@@ -164,7 +155,6 @@ El sistema valida criptograficamente los tokens JWT emitidos por Keycloak en cad
   4. Generacion de guia de entrevista situacional estructurada bajo metodologia STAR.
   5. Generacion del reporte consolidado y vinculacion automatica al dashboard.
 
-### 5.3 Asignacion y Delegacion de Expedientes
 ### 5.3 Visor Web Interactivo de CV Original y Enfoque Ético Human-in-the-Loop
 - **Visor Web de CV en PDF:** Streaming autenticado mediante `GET /api/v1/documents/cv/{candidateId}` con `Content-Disposition: inline`, permitiendo examinar el currículum original directamente en el navegador sin descargas obligatorias.
 - **Alternancia Fluida de Vistas:** Pestaña modular *"1. Síntesis & CV Original"* con selector instantáneo entre la síntesis estructurada y el visor del PDF original, optimizado con retención en memoria mediante `useRef` para evitar revocación prematura de Blob URLs.
@@ -176,7 +166,6 @@ El sistema valida criptograficamente los tokens JWT emitidos por Keycloak en cad
 - Vista personalizada para reclutadores que prioriza sus expedientes asignados.
 - Notificaciones claras en tarjetas y expediente con el reclutador a cargo.
 
-### 5.4 Diseno Web Responsivo y Accesible (Mobile-First)
 ### 5.5 Diseno Web Responsivo y Accesible (Mobile-First)
 - **Barra de navegacion superior adaptativa:** Menu hamburguesa tactil en pantallas moviles (< 640px) y barra expandida en escritorio (>= 640px).
 - **Tarjetas de metricas fluidas:** 1 columna en moviles pequenos, 2 en tabletas y 4 en escritorios.
@@ -195,7 +184,7 @@ El sistema valida criptograficamente los tokens JWT emitidos por Keycloak en cad
 
 ### 6.2 Mitigaciones de Seguridad del Backend
 - **Proteccion contra Path Traversal:** En [`StorageService.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Infrastructure/Services/Storage/StorageService.cs), todas las rutas de almacenamiento de archivos se resuelven de forma absoluta y se validan contra el directorio base mediante `Path.GetFullPath()`, rechazando intentos de salto de directorio (`..`).
-- **Validacion Criptografica de Webhooks:** En [`WebhooksController.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Api/Controllers/WebhooksController.cs), la firma HMAC SHA-256 del encabezado `X-ATS-Signature` se valida mediante `CryptographicOperations.FixedTimeEquals` para prevenir ataques de canal lateral basados en tiempo (Timing Attacks).
+- **Validacion Criptografica de Webhooks:** En [`WebhooksController.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Api/Controllers/WebhooksController.cs), las cabeceras de autorizacion `X-Webhook-Secret` o `X-Api-Key` se validan mediante `CryptographicOperations.FixedTimeEquals` para prevenir ataques de canal lateral basados en tiempo (Timing Attacks).
 - **Manejo Global de Excepciones:** [`GlobalExceptionHandlerMiddleware.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Api/Middlewares/GlobalExceptionHandlerMiddleware.cs) captura cualquier excepcion no controlada y emite respuestas estandarizadas RFC 7807 (ProblemDetails), suprimiendo volcados de memoria y trazas de ejecucion internas.
 - **Proteccion de Credenciales Sensibles:** Las claves de API de Google Gemini y secretos de webhooks se gestionan exclusivamente a traves de variables de entorno del sistema (`Gemini__ApiKey`, `Webhooks__Secret`), sin persistencia de credenciales en codigo fuente o repositorios publicos.
 
@@ -217,10 +206,15 @@ El sistema valida criptograficamente los tokens JWT emitidos por Keycloak en cad
    ```
    Abra `.env` y configure su clave privada en `Gemini__ApiKey=TU_API_KEY` (obtenible gratuitamente en [Google AI Studio](https://aistudio.google.com/app/apikey)).
 
-3. Construir e iniciar la totalidad de los contenedores:
-   ```bash
-   docker compose up -d --build
-   ```
+3. Construir e iniciar los contenedores segun el perfil requerido:
+   - **Modo Ligero (Triada Esencial por defecto - `postgres`, `backend`, `frontend`):**
+     ```bash
+     docker compose up -d --build
+     ```
+   - **Modo Completo (`--profile full` - incluye `keycloak`, `seq`, `n8n`):**
+     ```bash
+     docker compose --profile full up -d --build
+     ```
 
 4. Verificar que todos los servicios esten activos y saludables:
    ```bash
@@ -249,7 +243,6 @@ docker compose down
 
 ## 8. Pruebas Automatizadas
 
-El proyecto incluye una suite exhaustiva de 69 pruebas automatizadas distribuidas en cuatro proyectos bajo `Ats.slnx`:
 El proyecto incluye una suite exhaustiva de 80 pruebas automatizadas distribuidas en cuatro proyectos bajo `Ats.slnx`:
 
 ```bash
@@ -264,10 +257,7 @@ dotnet test backend/tests/Ats.Tests/Ats.Tests.csproj
 ```
 
 ### Cobertura de Pruebas:
-- **Ats.Domain.UnitTests (11 pruebas):** Validacion de invariantes en entidades de dominio (`Candidate`, `JobPosition`), creacion de `CandidateEmail`, reglas de transicion de estados y eventos de dominio.
-- **Ats.Application.UnitTests (14 pruebas):** Pruebas de handlers CQRS (`IngestCandidateCommandHandler`, `ProcessCvAnalysisCommandHandler`), validadores FluentValidation y asignacion de reclutadores.
-- **Ats.ArchitectureTests (5 pruebas):** Verificacion estricta de fronteras de Clean Architecture (el dominio no depende de infraestructura, la aplicacion no referencia API, encapsulamiento de contratos).
-- **Ats.Domain.UnitTests (16 pruebas):** Validacion de invariantes en entidades de dominio (`Candidate`, `JobPosition`), creacion de `CandidateEmail`, reglas de transicion de estados, eventos de dominio y evaluaciones psicométricas.
+- **Ats.Domain.UnitTests (16 pruebas):** Validacion de invariantes en entidades de dominio (`Candidate`, `JobPosition`), creacion de `CandidateEmail`, reglas de transicion de estados, igualdad por identidad (`Id`) y eventos de dominio.
 - **Ats.Application.UnitTests (19 pruebas):** Pruebas de handlers CQRS (`IngestCandidateCommandHandler`, `ProcessCvAnalysisCommandHandler`, `GetCandidateCvDocumentQueryHandler`), validadores FluentValidation y asignacion de reclutadores.
 - **Ats.ArchitectureTests (6 pruebas):** Verificacion estricta de fronteras de Clean Architecture (el dominio no depende de infraestructura, la aplicacion no referencia API, encapsulamiento de contratos e independencia de capas).
 - **Ats.Tests (39 pruebas):** Deteccion heuristica y sanitizacion contra Prompt Injection, normalizacion de habilidades tecnicas multi-area con catalogo semantico, calculo determinista de calce con el puesto (`JobFitScoringService`) y verificacion de consistencia curricular.
@@ -292,10 +282,21 @@ dotnet test backend/tests/Ats.Tests/Ats.Tests.csproj
   - Abstraccion de cache en memoria (`ICacheService`).
   - Modularizacion de componentes frontend (`EvaluatorReviewModal` en pestanas dedicadas).
   - Resolucion de cuello de botella 5N+1 mediante consultas por lote y proteccion de diccionarios.
-  - Integracion formal de la suite completa de testing (69 pruebas superadas).
+  - Integracion formal de la suite completa de testing (80 pruebas superadas).
+- **Fase 9:** Enfoque Etico Human-in-the-Loop y Visor Web de PDF:
+  - Streaming seguro de CV original (`GET /api/v1/documents/cv/{candidateId}`) sin descargas locales obligatorias.
+  - Reorientacion etica: IA como asistente utilitario de soporte documental para Recursos Humanos.
+  - Selector fluido en `CvAnalysisTab` con persistencia de Blob URL mediante `useRef`.
+- **Fase 10:** Modularizacion, Validacion y Optimizacion de Persistencia:
+  - Modularizacion del controlador monolitico `Controllers.cs` en controladores especializados y `ApiControllerBase`.
+  - Conexion de validadores FluentValidation en handlers CQRS (`RegisterCandidate`, `CreateJobPosition`, `UploadCv`).
+  - Igualdad semantica por identidad en `Entity<TId>` y limpieza automatica de eventos en `SaveChangesAsync`.
+  - Optimizacion de persistencia con `.AsNoTracking()` en todas las consultas de lectura de repositorios EF Core.
+  - Fortalecimiento de contratos TypeScript en frontend eliminando tipos `any`.
+  - Perfiles de ejecucion en Docker Compose (`up` ligero vs `--profile full`).
 
 ### Fases Planificadas
-- **Fase 9:** Notificaciones en tiempo real via WebSockets/SignalR para avisar inmediatamente al reclutador ante nuevas delegaciones de expedientes.
-- **Fase 10:** Portal publico de auto-postulacion directa para postulantes con captcha empresarial y limitacion de tasa de peticiones (rate limiting).
-- **Fase 11:** Sincronizacion de entrevistas con calendarios corporativos (Google Calendar, Microsoft Outlook / Teams).
-- **Fase 12:** Analitica avanzada de pipeline de seleccion y calculo de tiempos de ciclo de contratacion.
+- **Fase 11:** Notificaciones en tiempo real via WebSockets/SignalR para avisar inmediatamente al reclutador ante nuevas delegaciones de expedientes.
+- **Fase 12:** Portal publico de auto-postulacion directa para postulantes con captcha empresarial y limitacion de tasa de peticiones (rate limiting).
+- **Fase 13:** Sincronizacion de entrevistas con calendarios corporativos (Google Calendar, Microsoft Outlook / Teams).
+- **Fase 14:** Analitica avanzada de pipeline de seleccion y calculo de tiempos de ciclo de contratacion.

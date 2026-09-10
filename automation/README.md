@@ -40,16 +40,16 @@ El sistema soporta tres modalidades de ejecucion complementarias:
 
 ---
 
-## 3. Seguridad Criptografica de Webhooks
+## 3. Seguridad de Webhooks
 
-Para garantizar la integridad y autenticidad de los datos provenientes de n8n, el backend implementa una validacion estricta en [`WebhooksController.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Api/Controllers/WebhooksController.cs):
+Para garantizar que unicamente orquestadores autorizados interactuen con los endpoints de procesamiento, [`WebhooksController.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Api/Controllers/WebhooksController.cs) implementa validacion de credenciales:
 
-- **Encabezado Requerido:** `X-ATS-Signature`.
-- **Algoritmo:** HMAC SHA-256 calculado sobre el cuerpo bruto de la solicitud HTTP (raw body) utilizando el secreto compartido configurado en `Webhooks__Secret`.
-- **Prevencion de Ataques de Canal Lateral (Timing Attacks):** La comparacion entre el hash computado y el recibido en el encabezado se realiza mediante `CryptographicOperations.FixedTimeEquals`.
+- **Encabezado Requerido:** `X-Webhook-Secret: ats_webhook_secret_2026` (o alternativamente `X-Api-Key: ats_internal_dev_key_2026`).
+- **Prevencion de Ataques de Canal Lateral (Timing Attacks):** La comparacion entre el valor recibido y el secreto configurado se realiza mediante `CryptographicOperations.FixedTimeEquals`.
 - **Endpoints Protegidos:**
-  - `POST /api/v1/webhooks/cv-processed`
-  - `POST /api/v1/webhooks/disc-processed`
+  - `POST /api/v1/webhooks/process-cv` (parametros query: `candidateId`, `documentId`, `eventId`, `correlationId`)
+  - `POST /api/v1/webhooks/process-disc` (parametros query: `candidateId`, `discResultId`, `eventId`, `correlationId`)
+  - `POST /api/v1/webhooks/generate-report` (parametros query: `candidateId`, `eventId`, `correlationId`)
 
 ---
 

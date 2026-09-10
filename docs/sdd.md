@@ -2,12 +2,7 @@
 
 ## Sistema de evaluacion y seleccion de talento basado en CV y DISC (TalentIQ ATS)
 
-**Versión:** 2.6  
-**Estado:** Aprobado e Implementado  
-**Fecha:** 8 de septiembre de 2026  
-**Tipo de solución:** Prototipo Funcional y Arquitectonico / MVP Demostrativo  
-**Proveedor de IA:** Google Gemini (`gemini-flash-lite-latest` con cadena de resiliencia multi-modelo y `MockAiProvider` de respaldo)  
-**Servidor de Identidad:** Keycloak 26 con RBAC y OIDC PKCE  
+Guia de diseno tecnico y arquitectura del prototipo TalentIQ ATS para la evaluacion y seleccion de talento basada en CV y metodologia conductual DISC.
 
 > [!NOTE]
 > **Aviso de Alcance Tecnico - Prototipo / Prueba de Concepto (PoC)**
@@ -81,7 +76,10 @@ Cuando se crea una vacante y se carga el CV junto a los puntajes DISC, el sistem
 - Abstraccion de almacenamiento `IStorageService` con proveedores desacoplados Local (`LocalStorageService`) y S3 (`S3StorageService`).
 - Capa de cache en memoria `ICacheService` (`MemoryCacheService`) para optimizacion de consultas recurrentes.
 - Migraciones formales de EF Core con ejecucion automatica `db.Database.Migrate()` en el arranque.
-- Suite unificada de 69 pruebas automatizadas (`Ats.slnx`) integrando pruebas unitarias de dominio, aplicacion, arquitectura limpia y casos de seguridad.
+- Suite unificada de 80 pruebas automatizadas (`Ats.slnx`) integrando pruebas unitarias de dominio (16), aplicacion (19), arquitectura limpia (6) y casos de seguridad (39).
+- Visor web interactivo de CV original en PDF vía streaming seguro autenticado (`GET /api/v1/documents/cv/{candidateId}`) bajo supervisión ética humana (*Human-in-the-Loop*).
+- Modularizacion y saneamiento arquitectonico: controladores REST modulares con `ApiControllerBase`, validadores FluentValidation conectados en handlers CQRS, igualdad por identidad en `Entity<TId>`, `.AsNoTracking()` en repositorios EF Core y tipado estricto en frontend sin `any`.
+- Perfiles de ejecucion en Docker Compose: entorno ligero esencial (`postgres`, `backend`, `frontend`) por defecto y entorno completo satelite con `--profile full` (`keycloak`, `seq`, `n8n`).
 
 ### 4.2 Fuera del alcance (Fases Futuras)
 - Matching semántico avanzado con `pgvector` y modelos de embeddings locales.

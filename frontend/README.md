@@ -32,12 +32,6 @@ Modulo de interfaz de usuario web para el sistema de seleccion de talento Talent
    - Formulario empresarial para registrar titulo, departamento, nivel de seniority, anos minimos de experiencia, requisitos clave y descripcion del puesto. (Acceso exclusivo Administrador).
 3. **Modal de Asignacion de Reclutador (`AssignRecruiterModal`):**
    - Selector intuitivo de evaluador responsable (`carlos.mendoza`, `laura.sanchez`) con actualizacion inmediata en el dashboard.
-4. **Expediente Integral de 5 Pestañas (`EvaluatorReviewModal`):**
-   - *1. CV y Perfil:* Resumen profesional, experiencia laboral previa, formacion academica, competencias tecnicas y alertas de integridad curricular.
-   - *2. Perfil DISC:* Grafico Radar hexagonal interactivo, descriptores conductuales y fortalezas clave.
-   - *3. Preguntas STAR:* Guia situacional de indagacion profesional, tecnica y conductual.
-   - *4. Dictamen:* Formulario de resolucion oficial (Aprobado, En Reserva, Descartado) con notas confidenciales.
-   - *5. Expediente PDF:* Previsualizacion y descarga directa del documento ejecutivo oficial.
 4. **Modal Visor de PDF Original (`PdfViewerModal`):**
    - Visor web interactivo a pantalla completa para examinar el documento PDF original del postulante, con controles de nueva pestaña y descarga voluntaria.
 5. **Expediente Integral Modular de 5 Pestañas (`EvaluatorReviewModal`):**
@@ -71,13 +65,9 @@ frontend/
 │   │   ├── EvaluatorReviewModal.tsx       # Contenedor modular del expediente integral
 │   │   ├── PdfViewerModal.tsx             # Modal interactivo para visualizacion web de PDF original
 │   │   ├── evaluator/                     # Pestanas desacopladas del expediente:
-│   │   │   ├── CvAnalysisTab.tsx          # Resumen profesional, experiencia, formacion y skills
 │   │   │   ├── CvAnalysisTab.tsx          # Sintesis asistida, visor PDF original y banner etico
 │   │   │   ├── DiscProfileTab.tsx         # Radar SVG y descriptores conductuales
 │   │   │   ├── InterviewGuideTab.tsx      # Guia de indagacion situacional STAR
-│   │   │   ├── DecisionTab.tsx            # Formulario de dictamen (Aprobado, En Reserva, Descartado)
-│   │   │   └── PdfReportTab.tsx           # Visor y descarga del informe ejecutivo PDF
-│   │   ├── UploadCandidateModal.tsx       # Carga directa de CV, sliders DISC y evaluacion IA en vivo
 │   │   │   ├── DecisionTab.tsx            # Formulario de dictamen oficial soberano de RRHH
 │   │   │   └── PdfReportTab.tsx           # Visor interactivo y descarga de informe ejecutivo PDF
 │   │   ├── UploadCandidateModal.tsx       # Carga directa de CV, sliders DISC y generacion asistida en vivo
@@ -87,10 +77,10 @@ frontend/
 │   ├── context/
 │   │   └── AuthContext.tsx                # Contexto de sesion Keycloak (PKCE, tokens y roles)
 │   ├── services/
-│   │   ├── api.ts                         # Cliente HTTP tipado desacoplado via VITE_API_BASE_URL
+│   │   ├── api.ts                         # Cliente HTTP fuertemente tipado (sin tipos any) via VITE_API_BASE_URL
 │   │   └── keycloak.ts                    # Configuracion del cliente OIDC Keycloak JS
 │   ├── types/
-│   │   └── index.ts                       # Modelos TypeScript (Candidate, JobPosition, etc.)
+│   │   └── index.ts                       # Modelos TypeScript estrictos (UploadCvResponse, CvDocumentDto, etc.)
 │   ├── index.css                          # Configuracion de estilos Tailwind CSS
 │   └── main.tsx                           # Punto de entrada de la aplicacion React
 ├── .env.example                           # Variables de entorno frontend (VITE_API_BASE_URL, etc.)

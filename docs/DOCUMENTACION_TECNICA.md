@@ -1,21 +1,11 @@
-# Documentacion Tecnica de Solucion: ATS TalentIQ
+# Documentacion Tecnica: ATS TalentIQ
 
-## Sistema Integral de Seleccion y Evaluacion de Talento Asistido por IA
-
-- **Proyecto:** ATS TalentIQ (Applicant Tracking System)
-- **Version:** 2.6
-- **Fecha de emision:** 8 de septiembre de 2026
-- **Version:** 2.8
-- **Fecha de emision:** 9 de septiembre de 2026
-- **Estado del documento:** Aprobado e Implementado
-- **Ambiente:** Desarrollo / Preproduccion (Local Contenerizado)
-- **Clasificacion:** Documento Tecnico de Arquitectura de Software
+Guia tecnica explicativa de la arquitectura, componentes, integraciones y operacion del prototipo TalentIQ ATS.
 
 ---
 
 ## 1. Resumen o Introduccion
 
-ATS TalentIQ es una plataforma empresarial contenerizada de seleccion de talento diseñada para gestionar de forma integral el ciclo de admision de postulantes, la gestion formal de vacantes laborales y la evaluacion automatizada curricular y psicometrica.
 ATS TalentIQ es una plataforma empresarial contenerizada de seleccion de talento diseñada para gestionar de forma integral el ciclo de admision de postulantes, la gestion formal de vacantes laborales y la evaluacion automatizada curricular y psicometrica bajo supervision humana soberana (*Human-in-the-Loop*).
 
 El sistema articula modelos avanzados de Inteligencia Artificial Generativa (Google Gemini AI bajo el modelo de alta eficiencia `gemini-flash-lite-latest` con contingencia multi-modelo y proveedor `MockAiProvider` para entornos aislados), evaluacion conductual fundamentada en la metodologia psicometrica DISC (Dominancia, Influencia, Estabilidad, Cumplimiento) y generacion automatizada de guias de indagacion situacional estructuradas bajo metodologia STAR (Situacion, Tarea, Accion, Resultado).
@@ -27,9 +17,12 @@ La solucion ha sido construida siguiendo los principios de la Arquitectura Limpi
 2. **Independencia de Persistencia:** Los repositorios implementan abstracciones de persistencia desacopladas mediadas por Entity Framework Core 10 sobre PostgreSQL 16. La base de datos puede sustituirse o actualizarse mediante migraciones declarativas en C#.
 3. **Independencia de Presentacion:** La API REST expone contratos JSON estrictos y versionados (`/api/v1`), consumidos por una consola web ejecutiva en React 19 desacoplada a traves de variables de entorno (`VITE_API_BASE_URL`).
 4. **Resiliencia y Procesamiento en Segundo Plano:** El procesamiento curricular pesado puede ejecutarse en tiempo real de forma sincronica o delegarse a la cola en segundo plano desacoplada `IBackgroundJobQueue` (basada en canales en memoria `System.Threading.Channels` y `QueuedHostedService`), garantizando alta disponibilidad ante picos de demanda.
-5. **Seguridad Defensiva Multicapa:** Blindaje heuristico contra inyeccion de instrucciones (*Prompt Injection*), verificacion automatica de citas textuales de competencias (*Evidence Grounding Check*), prevencion de *Path Traversal* y comparacion en tiempo constante de firmas criptograficas HMAC SHA-256 (`CryptographicOperations.FixedTimeEquals`).
+5. **Seguridad Defensiva Multicapa:** Blindaje heuristico contra inyeccion de instrucciones (*Prompt Injection*), verificacion automatica de citas textuales de competencias (*Evidence Grounding Check*), prevencion de *Path Traversal* y comparacion en tiempo constante de credenciales y secretos de webhooks (`CryptographicOperations.FixedTimeEquals`).
 6. **Supervision Humana Soberana y Etica de la IA (Human-in-the-Loop):** La Inteligencia Artificial opera exclusivamente como herramienta utilitaria de asistencia y estructuracion fáctica para Recursos Humanos. La IA no califica de forma vinculante ni aprueba o descarta candidatos. El porcentaje visible refleja un "Cotejo de Requisitos Detectados en el CV", reservando la toma de decisiones y el dictamen oficial al criterio soberano de los evaluadores humanos.
 7. **Inspeccion Documental Interactiva (Visor Web de CV):** Incorporacion de visor interactivo web del currículum original en PDF transmitido via streaming seguro autenticado (`GET /api/v1/documents/cv/{candidateId}`). Permite a los reclutadores contrastar la síntesis asistida contra el documento original sin requerir descargas locales, soportando alternancia fluida de vistas y persistencia en memoria mediante `useRef`.
+8. **Modularidad Segregada en Presentacion y Dominio DDD:** Controladores REST especializados derivados de `ApiControllerBase` con responsabilidad unica; entidades del dominio con igualdad estricta por identidad (`IEquatable<Entity<TId>>`) y liberacion automatica del ciclo de vida de eventos de dominio tras la persistencia (`SaveChangesAsync`).
+9. **Optimizacion de Persistencia y Consultas de Lectura:** Desactivacion proactiva del seguimiento de cambios con `.AsNoTracking()` en todas las consultas de solo lectura de repositorios EF Core, reduciendo drasticamente el consumo de memoria del Change Tracker.
+10. **Tipado Estricto de Extremo a Extremo:** Erradicacion total de tipos genericos `any` en el cliente React/TypeScript mediante contratos de datos estructurados (`UploadCvResponse`, `CvDocumentDto`, `DiscResultDto`).
 
 ---
 
@@ -79,10 +72,15 @@ La configuracion del sistema se gestiona mediante inyeccion de dependencias jera
 
 ### 2.5 Ejecucion del Proyecto
 1. **Requisitos Previos:** .NET 10 SDK, Node.js 22 LTS, Docker Desktop o Docker Engine.
-2. **Levantamiento Integral Contenerizado:**
-   ```bash
-   docker compose up -d --build
-   ```
+2. **Levantamiento Contenerizado (Perfiles de Ejecucion):**
+   - **Modo Ligero (Triada Esencial por Defecto):** Inicia unicamente la base de datos relacional, la API backend y la consola web frontend:
+     ```bash
+     docker compose up -d --build
+     ```
+   - **Modo Completo (`--profile full`):** Inicia la plataforma completa incorporando los servicios satelite de observabilidad y automatizacion (`keycloak`, `seq`, `n8n`):
+     ```bash
+     docker compose --profile full up -d --build
+     ```
 3. **Ejecucion Local del Backend (.NET 10):**
    ```bash
    cd backend/src/Ats.Api
@@ -103,9 +101,6 @@ La configuracion del sistema se gestiona mediante inyeccion de dependencias jera
 - **Servidor Keycloak IAM:** `http://localhost:8085`
 - **Consola de Telemetria Seq:** `http://localhost:8080`
 
-### 2.7 Contacto y Soporte
-- Responsable Tecnico: Equipo de Arquitectura de Software ATS
-- Canal de Atencion: Ingenieria de Software y Seleccion de Talento
 
 ---
 
@@ -580,7 +575,7 @@ sequenceDiagram
 ```
 
 ### 5.3 Flujo 3: Integracion con Webhooks Seguros (n8n Batch)
-Cuando un sistema externo o flujo por lotes nocturno procesa archivos:
+Cuando un orquestador externo o flujo por lotes ejecuta etapas de procesamiento:
 
 ```mermaid
 sequenceDiagram
@@ -589,14 +584,13 @@ sequenceDiagram
     participant API as WebhooksController
     participant DB as PostgreSQL 16
 
-    n8n->>n8n: Computa HMAC-SHA256(RawBody, Webhooks__Secret)
-    n8n->>API: POST /api/v1/webhooks/cv-processed (Header: X-ATS-Signature)
-    API->>API: Valida firma usando CryptographicOperations.FixedTimeEquals
-    alt Firma Invalida
-        API-->>n8n: 401 Unauthorized (Firma invalida)
-    else Firma Valida
-        API->>DB: Almacena resultado de evaluacion
-        API-->>n8n: 200 OK
+    n8n->>API: POST /api/v1/webhooks/process-cv?candidateId=...&documentId=... (Header: X-Webhook-Secret)
+    API->>API: Valida secreto usando CryptographicOperations.FixedTimeEquals
+    alt Secreto Invalido o Ausente
+        API-->>n8n: 401 Unauthorized
+    else Secreto Valido
+        API->>DB: Procesa y almacena resultado de evaluacion
+        API-->>n8n: 200 OK (CvAnalysisDto)
     end
 ```
 
@@ -645,7 +639,6 @@ El flujo estandar de liberacion del software se modela en fases automatizadas:
        ▼
 [ Fase CI: Compilacion y Pruebas ]
    • dotnet build Ats.slnx
-   • dotnet test Ats.slnx (69 pruebas automatizadas)
    • dotnet test Ats.slnx (80 pruebas automatizadas)
    • npm run build (TypeScript estricto en frontend)
        │
@@ -668,7 +661,6 @@ El flujo estandar de liberacion del software se modela en fases automatizadas:
 
 ## 8. Estrategias de Pruebas
 
-El sistema cuenta con una suite integral de **69 pruebas automatizadas** ejecutables mediante un unico comando:
 El sistema cuenta con una suite integral de **80 pruebas automatizadas** ejecutables mediante un unico comando:
 
 ```bash
@@ -676,19 +668,15 @@ dotnet test Ats.slnx
 ```
 
 ### 8.1 Distribucion de la Suite de Pruebas
-1. **Pruebas de Dominio (`Ats.Domain.UnitTests` - 11 pruebas):**
 1. **Pruebas de Dominio (`Ats.Domain.UnitTests` - 16 pruebas):**
    - Validacion de entidades de dominio (`Candidate`, `JobPosition`, `CandidateEmail`).
-   - Reglas de transicion de estados de evaluacion y generacion de eventos de dominio.
-2. **Pruebas de Aplicacion (`Ats.Application.UnitTests` - 14 pruebas):**
-   - Verificacion de handlers de ingesta (`IngestCandidateCommandHandler`) y analisis curricular (`ProcessCvAnalysisCommandHandler`).
+   - Invariantes de valor, igualdad semantica basada en `Id` (`IEquatable<Entity<TId>>`).
+   - Reglas de transicion de estados de evaluacion y acumulacion de eventos de dominio.
 2. **Pruebas de Aplicacion (`Ats.Application.UnitTests` - 19 pruebas):**
    - Verificacion de handlers de ingesta (`IngestCandidateCommandHandler`), analisis curricular (`ProcessCvAnalysisCommandHandler`) y recuperacion de documentos de CV original en streaming binario (`GetCandidateCvDocumentQueryHandler`).
-   - Comprobacion de validadores de comando y logica de asignacion de reclutadores.
-3. **Pruebas de Arquitectura Limpia (`Ats.ArchitectureTests` - 5 pruebas):**
+   - Comprobacion de validadores de comando FluentValidation (`RegisterCandidateCommandValidator`, etc.) y logica de asignacion de reclutadores.
 3. **Pruebas de Arquitectura Limpia (`Ats.ArchitectureTests` - 6 pruebas):**
    - Verificacion mediante reflexion de que la capa de Dominio no posea referencias hacia Infraestructura o APIs.
-   - Enforzamiento de la regla de dependencias unidireccionales de Clean Architecture.
    - Enforzamiento estricto de la regla de dependencias unidireccionales de Clean Architecture.
 4. **Pruebas de Seguridad y Scoring (`Ats.Tests` - 39 pruebas):**
    - Deteccion de patrones heuristicos de Prompt Injection (espanol e ingles).

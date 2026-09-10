@@ -109,7 +109,7 @@ VALUES (
         ],
         "pointsToValidate": [
             "Profundizar en la estrategia de migración de datos transaccionales sin downtime en el proyecto bancario",
-            "Validar cómo balancea la deuda técnica frente a la presión de entrega del negocio"
+            "Validar cómo balancea la calidad de la arquitectura frente a la presión de entrega del negocio"
         ],
         "warnings": []
     }$$::jsonb,

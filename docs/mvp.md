@@ -63,7 +63,7 @@ El resultado consolidado del proceso es el **Expediente e Informe Preentrevista 
 3. **Analisis Curricular con Gemini AI:** Extraccion estructurada bajo JSON Schema estricto.
 4. **Interpretacion Conductual DISC:** Generacion de descriptores laborales a partir de los puntajes D, I, S, C.
 5. **Generacion Automatizada de Guias STAR:** Preguntas situacionales personalizadas para el perfil.
-6. **Persistencia Relacional Transaccional:** Esquema en PostgreSQL 16 con llaves foraneas indexadas (`01` al `06-create-job-positions.sql`).
+6. **Persistencia Relacional Transaccional:** Esquema en PostgreSQL 16 con scripts unificados en `database/init/` (`00-create-keycloak-db.sql`, `01-schema.sql`, `02-seed-data.sql`).
 7. **Consola Web Responsiva:** Adaptabilidad total en smartphones, tabletas y monitores de escritorio (Navbar con menu hamburguesa, modals fluidos `h-[95vh]`, RadarChart con SVG `viewBox`).
 8. **Identidad Centralizada y RBAC con Keycloak 26:** Flujo PKCE en React, validacion JWKS en ASP.NET Core y tema visual corporativo responsivo.
 9. **Delegacion de Candidatos:** Asignacion individual de expedientes de administradores hacia evaluadores responsables.
@@ -72,8 +72,10 @@ El resultado consolidado del proceso es el **Expediente e Informe Preentrevista 
 12. **Desacoplamiento y Modularidad Arquitectonica:** Abstraccion `IAiProvider` con conmutacion automatica a `MockAiProvider` ante ausencia de credenciales; abstraccion `IStorageService` con soporte local y S3; capa de cache en memoria `ICacheService`.
 13. **Procesamiento en Segundo Plano (Background Channels):** Cola desacoplada `IBackgroundJobQueue` y `QueuedHostedService` para absorcion de cargas asincronas de evaluacion curricular.
 14. **Migraciones Formales EF Core:** Modelo declarativo en C# con ejecucion automatica `db.Database.Migrate()` en el arranque.
-15. **Suite Completa de Pruebas Automatizadas:** 69 pruebas integradas en `Ats.slnx` cubriendo invariantes de dominio, handlers de aplicacion, reglas arquitectonicas y casos de seguridad.
-16. **Modularizacion Frontend:** Subcomponentes dedicados de expediente bajo `src/components/evaluator/` y configuracion desacoplada via `VITE_API_BASE_URL`.
+15. **Suite Completa de Pruebas Automatizadas:** 80 pruebas integradas en `Ats.slnx` cubriendo invariantes de dominio (16), handlers de aplicacion (19), reglas arquitectonicas (6) y casos de seguridad (39).
+16. **Modularizacion Frontend:** Subcomponentes dedicados de expediente bajo `src/components/evaluator/`, contratos fuertemente tipados sin tipos `any` y configuracion desacoplada via `VITE_API_BASE_URL`.
+17. **Visor Web de CV Original y Supervisión Ética (Human-in-the-Loop):** Streaming binario seguro de currículum en PDF (`GET /api/v1/documents/cv/{candidateId}`) con alternancia fluida de vistas y posicionamiento de la IA como asistente utilitario complementario.
+18. **Modularizacion y Saneamiento Arquitectonico:** Controladores REST especializados segregados con `ApiControllerBase`, validadores FluentValidation conectados en handlers CQRS, igualdad por identidad en `Entity<TId>`, `.AsNoTracking()` en repositorios EF Core y perfiles ligeros en Docker Compose (`up` ligero vs `--profile full`).
 
 ### 5.2 Funcionalidades para Siguientes Fases (Hoja de Ruta)
 1. Notificaciones asincronas en tiempo real por WebSockets (SignalR) ante nuevas asignaciones.

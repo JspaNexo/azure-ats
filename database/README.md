@@ -15,12 +15,6 @@ Cuando el contenedor `ats_postgres` arranca por primera vez, ejecuta automaticam
 | Script | Proposito | Descripcion |
 | :--- | :--- | :--- |
 | **`00-create-keycloak-db.sql`** | Base de datos para IAM | Ejecuta `CREATE DATABASE keycloak_db;` para aislar el esquema de usuarios y roles de Keycloak. |
-| **`01-init.sql`** | Esquema base del ATS | Crea las tablas nucleares: `candidates`, `cv_analyses`, `disc_interpretations`, `interview_reports`, `processing_jobs`. |
-| **`02-seed-realistic-data.sql`** | Semilla de datos | Carga perfiles representativos de postulantes con datos curriculares, DISC y preguntas STAR para pruebas. |
-| **`03-add-foreign-keys.sql`** | Integridad referencial | Establece llaves foraneas explícitas e indices relacionales con reglas `ON DELETE CASCADE`. |
-| **`04-add-evaluator-columns.sql`** | Dictamen de evaluacion | Incorpora columnas para resolucion del comite: `interview_decision`, `interview_notes`, `evaluated_at`. |
-| **`05-add-assignment-columns.sql`** | Delegacion de reclutadores | Incorpora campos de asignacion: `assigned_recruiter_id`, `assigned_recruiter_name`. |
-| **`06-create-job-positions.sql`** | Catalogo de vacantes | Crea la tabla `job_positions` y anade la columna `job_position_id` indexada en `candidates` con regla `ON DELETE SET NULL`. |
 | **`01-schema.sql`** | Esquema DDL Consolidado del ATS | Define extensiones UUID, tablas nucleares (`candidates`, `job_positions`, `cv_documents`, `candidate_cv_analyses`, `candidate_disc_results`, `candidate_disc_interpretations`, `candidate_assessments`, `candidate_assessment_interpretations`, `candidate_interview_reports`, `processing_jobs`), llaves foráneas indexadas y restricciones de integridad referencial. |
 | **`02-seed-data.sql`** | Datos Semilla DML (Nativo UTF-8) | Carga perfiles representativos completos, vacantes formales activas, evaluaciones curriculares estructuradas en JSONB, mediciones conductuales y guías de preguntas STAR para pruebas locales inmediatas. |
 
@@ -50,48 +44,45 @@ Cuando el contenedor `ats_postgres` arranca por primera vez, ejecuta automaticam
   ┌───────────────────────────────────────────────────────────┐
   │                        candidates                         │
   ├───────────────────────────────────────────────────────────┤
-  │ id (PK, UUID)                                             │
+  │ Id (PK, UUID)                                             │
   │ job_position_id (FK -> job_positions.id, nullable)       │
-  │ first_name, last_name, email, phone, target_role          │
-  │ status, current_step, cv_file_path                        │
-  │ assigned_recruiter_id, assigned_recruiter_name            │
-  │ interview_decision, interview_notes, evaluated_at         │
-  │ created_at_utc, updated_at_utc                            │
-  └────────┬────────────────────────┬─────────────────────────┘
-           │ 1                      │ 1
-           │ 0..1                   │ 0..1
-           ▼                        ▼
-  ┌─────────────────────────┐   ┌─────────────────────────┐
-  │       cv_analyses       │   │   disc_interpretations  │
-  ├─────────────────────────┤   ├─────────────────────────┤
-  │ id (PK, UUID)           │   │ id (PK, UUID)           │
-  │ candidate_id (FK)       │   │ candidate_id (FK)       │
-  │ executive_summary       │   │ dominance_score         │
-  │ extracted_skills (JSONB)│   │ influence_score         │
-  │ work_experiences (JSONB)│   │ steadiness_score        │
-  │ education (JSONB)       │   │ compliance_score        │
-  │ security_flags (JSONB)  │   │ primary_style           │
-  │ created_at_utc          │   │ workplace_descriptors   │
-  └────────┬────────────────┘   └────────┬────────────────┘
-           │                             │
-           └──────────────┬──────────────┘
-                          │ 1..1
-                          ▼
-            ┌───────────────────────────┐
-            │     interview_reports     │
-            ├───────────────────────────┤
-            │ id (PK, UUID)             │
-            │ candidate_id (FK)         │
-            │ cv_analysis_id (FK)       │
-            │ disc_interpretation_id(FK)│
-            │ executive_summary         │
-            │ behavioral_profile        │
-            │ key_strengths             │
-            │ red_flags                 │
-            │ star_questions (JSONB)    │
-            │ report_file_path          │
-            │ created_at_utc            │
-            └───────────────────────────┘
+  │ FirstName, LastName, email, PhoneNumber, target_role      │
+  │ assignedrecruiterid, assignedrecruitername                │
+  │ assignedrecruiteremail, assignedatutc                     │
+  │ EvaluatorDecision, EvaluatorNotes, EvaluatedAtUtc         │
+  │ CreatedAtUtc, UpdatedAtUtc                                │
+  └────────┬──────────────┬──────────────┬──────────────┬─────┘
+           │ 1            │ 1            │ 1            │ 1
+           │ 0..N         │ 0..1         │ 0..1         │ 0..1
+           ▼              ▼              ▼              ▼
+  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐ ┌───────────────────────────┐
+  │  cv_documents   │ │candidate_cv_    │ │candidate_disc_  │ │candidate_interview_     │
+  │                 │ │analyses         │ │results          │ │reports                   │
+  ├─────────────────┤ ├─────────────────┤ ├─────────────────┤ ├───────────────────────────┤
+  │ Id (PK, UUID)   │ │ Id (PK, UUID)   │ │ Id (PK, UUID)   │ │ Id (PK, UUID)             │
+  │ CandidateId (FK)│ │ CandidateId (FK)│ │ CandidateId (FK)│ │ CandidateId (FK)          │
+  │ FileName        │ │ DocumentId (FK) │ │ DominanceScore  │ │ ReportJson (JSONB)        │
+  │ StoragePath     │ │ AnalysisJson    │ │ InfluenceScore  │ │ ReportPdfPath             │
+  │ FileSizeBytes   │ │ Status          │ │ SteadinessScore │ │ CreatedAtUtc              │
+  │ ContentType     │ │ ModelProvider   │ │ ComplianceScore │ └───────────────────────────┘
+  │ UploadedAtUtc   │ │ ModelVersion    │ │ PrimaryStyle    │
+  └─────────────────┘ │ CreatedAtUtc    │ │ SecondaryStyle  │
+                      └─────────────────┘ └────────┬────────┘
+                                                   │ 1
+                                                   │ 0..1
+                                                   ▼
+                                          ┌─────────────────────────────┐
+                                          │candidate_disc_              │
+                                          │interpretations              │
+                                          ├─────────────────────────────┤
+                                          │ Id (PK, UUID)               │
+                                          │ CandidateId (FK)            │
+                                          │ DiscResultId (FK)           │
+                                          │ WorkplaceDescriptors        │
+                                          │ Strengths (TEXT[])          │
+                                          │ LeadershipStyle             │
+                                          │ CreatedAtUtc                │
+                                          └─────────────────────────────┘
 ```
 
 ---
