@@ -142,30 +142,21 @@ El sistema sigue los principios de **Clean Architecture (Arquitectura Limpia / P
 
 ```mermaid
 flowchart LR
-    C[Candidato] --> FE[Frontend existente]
+    C[Candidato] --> FE[Frontend Web React 19]
     R[Reclutador] --> FE
 
-    FE --> API[ASP.NET Core API]
     FE --> API[ASP.NET Core API - Clean Architecture]
 
-    API --> DB[(PostgreSQL)]
-    API --> FS[Almacenamiento de archivos]
-    API --> N8N[n8n]
-    API --> N8N[n8n Orquestador]
-
-    N8N --> API
-    N8N --> FS
-    N8N --> AI[Servicio de IA]
-
-    AI --> GEMINI[Google Gemini]
-    AI -. Proveedor futuro .-> OTHER[Otro proveedor]
-    AI -. Proveedor futuro .-> OTHER[OpenAI / Claude / Local]
-
-    N8N --> REPORT[Generador de informe]
+    API --> DB[(PostgreSQL 16)]
+    API --> FS[Almacenamiento de Archivos PDF]
+    API --> AI[Servicio de IA / Gemini]
+    API --> REPORT[Generador de Informe PDF / QuestPDF]
     REPORT --> FS
 
+    N8N[Orquestador n8n] <-->|"Webhooks"| API
+
     API --> LOG[Serilog]
-    LOG --> SEQ[Seq]
+    LOG --> SEQ[Seq Telemetria]
 ```
 
 ### 6.2 Diagrama de capas del Backend (.NET Clean Architecture)
@@ -214,38 +205,30 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Candidato carga su CV] --> B[API registra el documento]
-    B --> C[Webhook de CV hacia n8n]
+    A[Carga de CV en PDF + Vacante] --> B[API registra el documento]
+    B --> C[Orquestación de análisis: síncrono o webhook n8n]
 
-    C --> D[Consultar datos del candidato]
-    D --> E[Obtener archivo del CV]
-    E --> F[Extraer texto del PDF]
-    F --> G[Enviar texto al servicio de IA]
-    G --> H[Validar respuesta JSON]
-    G --> H[Validar respuesta JSON con esquema]
-    H --> I[Normalizar información]
-    I --> J[Guardar análisis del CV]
+    C --> D[API obtiene archivo del CV del storage]
+    D --> E[PdfPig extrae texto del PDF en memoria]
+    E --> F[CvSecuritySanitizer neutraliza prompt injection]
+    F --> G[Gemini AI analiza CV bajo JSON Schema]
+    G --> H[Normalizar competencias y validar evidencias]
+    H --> I[Guardar análisis del CV en PostgreSQL]
 
-    K[Candidato completa evaluación DISC] --> L[Plataforma calcula el resultado]
-    L --> M[Webhook DISC hacia n8n]
-    M --> N[Consultar resultado DISC oficial]
-    N --> O[Generar síntesis DISC con IA]
-    O --> P[Validar respuesta JSON]
-    O --> P[Validar respuesta JSON con esquema]
-    P --> Q[Guardar interpretación DISC]
+    J[Captura de evaluación DISC] --> K[API registra dimensiones D, I, S, C]
+    K --> L[Gemini AI genera síntesis conductual DISC]
+    L --> M[Guardar interpretación DISC en PostgreSQL]
 
-    J --> R{CV y DISC procesados}
-    Q --> R
+    I --> N{CV y DISC procesados}
+    M --> N
 
-    R -->|No| S[Esperar información pendiente]
-    R -->|Sí| T[Consolidar CV y DISC]
+    N -->|No| O[Esperar información pendiente]
+    N -->|Sí| P[Consolidar CV y DISC]
 
-    T --> U[Generar preguntas de entrevista]
-    U --> V[Generar contenido del informe]
-    V --> W[Validar estructura y longitud]
-    W --> X[Generar documento de 2 páginas]
-    X --> Y[Guardar informe]
-    Y --> Z[Informe disponible para el reclutador]
+    P --> Q[Generar preguntas situacionales STAR con IA]
+    Q --> R[QuestPDF genera informe ejecutivo de 2 páginas]
+    R --> S[Guardar informe PDF en almacenamiento]
+    S --> T[Informe y visor web de CV listos para el evaluador]
 ```
 
 ---

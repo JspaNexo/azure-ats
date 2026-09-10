@@ -139,7 +139,7 @@ flowchart TD
     ATS <-->|"Valida tokens JWT y roles [HTTPS / JWKS]"| Keycloak
     ATS -->|"Solicita analisis curricular y preguntas STAR [HTTPS / JSON]"| Gemini
     ATS <-->|"Persiste y descarga archivos PDF [S3 API / Storage]"| S3Storage
-    N8N -->|"Envia resultados batch via webhooks [HMAC SHA-256]"| ATS
+    N8N -->|"Orquesta flujos batch via webhooks [X-Webhook-Secret]"| ATS
 ```
 
 ---
@@ -195,7 +195,7 @@ flowchart TD
     BackendAPI -->|"I/O de archivos seguros"| StorageDisk
     BackendAPI -->|"Envia logs estructurados [Serilog / 5341]"| Seq
     BackendAPI -->|"Invocaciones LLM [HTTPS / JSON]"| Gemini
-    N8N -->|"Webhooks firmados [HMAC SHA-256]"| BackendAPI
+    N8N -->|"Webhooks autorizados [X-Webhook-Secret]"| BackendAPI
 ```
 
 ---
@@ -226,6 +226,7 @@ flowchart LR
         RepCtrl["ReportsController<br/>/api/v1/reports"]:::api
         WhCtrl["WebhooksController<br/>/api/v1/webhooks"]:::api
         DocCtrl["DocumentsController<br/>/api/v1/documents/cv"]:::api
+        DiscCtrl["DiscController<br/>/api/v1/disc"]:::api
         IngCtrl["IngestionController<br/>/api/v1/ingestion/evaluate"]:::api
     end
 
@@ -235,7 +236,7 @@ flowchart LR
         HCand["CandidatesCQRS<br/>• Consultas y asignación<br/>• Dictamen de evaluador<br/>• [Agregado: Candidate]"]:::app
         HJob["JobPositionsCQRS<br/>• Catálogo de vacantes<br/>• Requisitos técnicos y perfil<br/>• [Entidad: JobPosition]"]:::app
         HRep["ReportsCQRS<br/>• Generación de dossier pre-entrevista<br/>• Estructuración STAR y preguntas<br/>• [Entidad: InterviewReport]"]:::app
-        HWh["WebhooksCQRS<br/>• Procesamiento diferido<br/>• Firma criptográfica HMAC"]:::app
+        HWh["WebhooksCQRS<br/>• Procesamiento diferido<br/>• Validación X-Webhook-Secret"]:::app
         HDoc["DocumentsCQRS<br/>• Carga y streaming de CV<br/>• Validación y lectura segura"]:::app
         HIngest["IngestionCQRS & Scoring<br/>• Pipeline de evaluación de CV<br/>• JobFitScoringService (Calce)<br/>• [Entidad: CvAnalysis & DISC]"]:::app
     end
@@ -263,8 +264,9 @@ flowchart LR
     WebSpa -->|"Bearer JWT"| CandCtrl
     WebSpa -->|"Bearer JWT"| JobCtrl
     WebSpa -->|"Dossier PDF"| RepCtrl
-    N8nIn -->|"HMAC SHA-256"| WhCtrl
+    N8nIn -->|"X-Webhook-Secret"| WhCtrl
     WebSpa -->|"Streaming"| DocCtrl
+    WebSpa -->|"Puntajes DISC"| DiscCtrl
     WebSpa -->|"Evaluación"| IngCtrl
 
     %% FLUJO 2: API -> CQRS (1 a 1 paralelo directo)
@@ -273,6 +275,7 @@ flowchart LR
     RepCtrl --> HRep
     WhCtrl --> HWh
     DocCtrl --> HDoc
+    DiscCtrl --> HIngest
     IngCtrl --> HIngest
 
     %% FLUJO 3: CQRS -> INFRAESTRUCTURA (Alineación paralela sin cruces)
