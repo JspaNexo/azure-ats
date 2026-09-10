@@ -209,92 +209,97 @@ flowchart TD
 Detalla la organizacion modular interna de la API backend y la interaccion entre controladores, casos de uso CQRS, entidades de dominio y adaptadores de infraestructura:
 
 ```mermaid
-flowchart TD
+flowchart LR
+    classDef client fill:#37474f,stroke:#263238,color:#ffffff,stroke-width:2px;
     classDef api fill:#1565c0,stroke:#0d47a1,color:#ffffff,stroke-width:2px;
     classDef app fill:#0277bd,stroke:#01579b,color:#ffffff,stroke-width:2px;
-    classDef domain fill:#ef6c00,stroke:#e65100,color:#ffffff,stroke-width:2px;
     classDef infra fill:#2e7d32,stroke:#1b5e20,color:#ffffff,stroke-width:2px;
     classDef ext fill:#455a64,stroke:#263238,color:#ffffff,stroke-width:2px;
 
-    Client["Peticiones HTTP entrantes (Frontend / Webhooks)"]
-
-    subgraph CapaApi ["1. Capa API / Controladores REST (Ats.Api)"]
+    %% CANALES DE ENTRADA
+    subgraph Canales ["Clientes y Canales de Entrada"]
         direction TB
-        IngCtrl["IngestionController<br/>POST /api/v1/ingestion/evaluate"]:::api
-        CandCtrl["CandidatesController<br/>GET /api/v1/candidates<br/>POST /api/v1/candidates/{id}/decision"]:::api
-        DocCtrl["DocumentsController<br/>GET /api/v1/documents/cv/{id}"]:::api
-        JobCtrl["JobPositionsController<br/>GET, POST /api/v1/positions"]:::api
-        RepCtrl["ReportsController<br/>GET /api/v1/reports/{id}/pdf"]:::api
-        WhCtrl["WebhooksController<br/>POST /api/v1/webhooks/*"]:::api
-        MwErr["GlobalExceptionHandlerMiddleware<br/>ProblemDetails RFC 7807"]:::api
+        WebSpa["Consola Web SPA<br/>[React 19 / Vite / Tailwind]"]:::client
+        N8nIn["Orquestador n8n<br/>[Webhooks y Flujos Batch]"]:::client
     end
 
-    subgraph CapaApp ["2. Capa de Aplicacion / Casos de Uso (Ats.Application - CQRS)"]
+    %% 1. CONTROLADORES API
+    subgraph CapaApi ["1. Capa de Presentación REST (Ats.Api)"]
         direction TB
-        HIngest["IngestCandidateCommandHandler<br/>Orquestacion de evaluacion integral"]:::app
-        HGetCand["GetCandidatesQueryHandler<br/>Consultas por lote optimizadas"]:::app
-        HGetCvDoc["GetCandidateCvDocumentQueryHandler<br/>Streaming de CV original en PDF"]:::app
-        HJobFit["JobFitScoringService<br/>Calculo de compatibilidad con vacante"]:::app
-        HReportPdf["GetReportPdfQueryHandler<br/>Consolidacion de datos para PDF"]:::app
-        HAssign["AssignCandidateCommandHandler<br/>Delegacion de evaluador"]:::app
+        CandCtrl["CandidatesController<br/>/api/v1/candidates"]:::api
+        JobCtrl["JobPositionsController<br/>/api/v1/positions"]:::api
+        RepCtrl["ReportsController<br/>/api/v1/reports"]:::api
+        WhCtrl["WebhooksController<br/>/api/v1/webhooks"]:::api
+        DocCtrl["DocumentsController<br/>/api/v1/documents/cv"]:::api
+        IngCtrl["IngestionController<br/>/api/v1/ingestion/evaluate"]:::api
     end
 
-    subgraph CapaDominio ["3. Capa de Dominio (Ats.Domain)"]
+    %% 2. CASOS DE USO CQRS Y DOMINIO
+    subgraph CapaCore ["2. Casos de Uso CQRS y Dominio (Ats.Application & Ats.Domain)"]
         direction TB
-        EntCandidate["Candidate<br/>[Aggregate Root]"]:::domain
-        EntJob["JobPosition<br/>[Entity]"]:::domain
-        EntAnalysis["CvAnalysis & DiscInterpretation<br/>[Entities / Value Objects]"]:::domain
-        EntReport["InterviewReport<br/>[Entity]"]:::domain
+        HCand["CandidatesCQRS<br/>• Consultas y asignación<br/>• Dictamen de evaluador<br/>• [Agregado: Candidate]"]:::app
+        HJob["JobPositionsCQRS<br/>• Catálogo de vacantes<br/>• Requisitos técnicos y perfil<br/>• [Entidad: JobPosition]"]:::app
+        HRep["ReportsCQRS<br/>• Generación de dossier pre-entrevista<br/>• Estructuración STAR y preguntas<br/>• [Entidad: InterviewReport]"]:::app
+        HWh["WebhooksCQRS<br/>• Procesamiento diferido<br/>• Firma criptográfica HMAC"]:::app
+        HDoc["DocumentsCQRS<br/>• Carga y streaming de CV<br/>• Validación y lectura segura"]:::app
+        HIngest["IngestionCQRS & Scoring<br/>• Pipeline de evaluación de CV<br/>• JobFitScoringService (Calce)<br/>• [Entidad: CvAnalysis & DISC]"]:::app
     end
 
-    subgraph CapaInfra ["4. Capa de Infraestructura (Ats.Infrastructure)"]
+    %% 3. INFRAESTRUCTURA Y ADAPTADORES
+    subgraph CapaInfra ["3. Infraestructura y Adaptadores Técnicos (Ats.Infrastructure)"]
         direction TB
-        AppDb["ApplicationDbContext & Repositorios<br/>PostgreSQL 16 + Migraciones EF Core"]:::infra
-        AiRouter["IA Provider Router<br/>GeminiAiProvider / MockAiProvider"]:::infra
-        JobQueue["ChannelBackgroundJobQueue<br/>& QueuedHostedService"]:::infra
-        StorageSvc["LocalStorageService / S3StorageService<br/>Gestion segura de archivos"]:::infra
-        PdfGen["QuestPdfReportGenerator<br/>Renderizado de informe de 2 paginas"]:::infra
-        Sanitizer["CvSecuritySanitizer<br/>Heuristica anti-inyeccion"]:::infra
+        AppDb["ApplicationDbContext & Repositorios<br/>[PostgreSQL 16 / EF Core 10 / Npgsql]"]:::infra
+        PdfGen["QuestPdfReportGenerator<br/>[Renderizado en memoria de dossier PDF]"]:::infra
+        AiRouter["GeminiAiProvider / MockAiProvider<br/>[Inferencia LLM resiliente v1beta]"]:::infra
+        StorageSvc["LocalStorageService / S3StorageService<br/>[Gestión segura I/O de archivos PDF]"]:::infra
+        JobQueue["ChannelBackgroundJobQueue & Worker<br/>[Procesamiento asíncrono desacoplado]"]:::infra
+        Sanitizer["CvSecuritySanitizer<br/>[Heurística anti-inyección de prompts]"]:::infra
     end
 
-    subgraph DestinosExternos ["Destinos de Persistencia e Integracion Externa"]
+    %% 4. DESTINOS EXTERNOS
+    subgraph DestinosExternos ["4. Destinos de Persistencia e Integración Externa"]
         direction TB
-        Postgres[("PostgreSQL 16 Alpine")]:::ext
-        GeminiAPI["Google Gemini API Cloud"]:::ext
-        StorageVol[("Almacenamiento Local / S3")]:::ext
+        Postgres[("PostgreSQL 16 Alpine<br/>ats_db (Relacional + JSONB)")]:::ext
+        GeminiCloud["Google Gemini AI API<br/>gemini-flash-lite Cloud"]:::ext
+        StorageVol[("Volumen de Archivos<br/>/app/Storage o AWS S3")]:::ext
     end
 
-    Client --> CapaApi
+    %% FLUJO 1: ENTRADA -> API
+    WebSpa -->|"Bearer JWT"| CandCtrl
+    WebSpa -->|"Bearer JWT"| JobCtrl
+    WebSpa -->|"Dossier PDF"| RepCtrl
+    N8nIn -->|"HMAC SHA-256"| WhCtrl
+    WebSpa -->|"Streaming"| DocCtrl
+    WebSpa -->|"Evaluación"| IngCtrl
 
-    IngCtrl -->|"Invoca (Sincrono)"| HIngest
-    IngCtrl -->|"Encola (Asincrono)"| JobQueue
-    CandCtrl -->|"Consulta"| HGetCand
-    CandCtrl -->|"Asigna / Dictamina"| HAssign
-    DocCtrl -->|"Solicita stream"| HGetCvDoc
-    RepCtrl -->|"Genera PDF"| HReportPdf
-    WhCtrl -->|"Persiste webhook"| AppDb
+    %% FLUJO 2: API -> CQRS (1 a 1 paralelo directo)
+    CandCtrl --> HCand
+    JobCtrl --> HJob
+    RepCtrl --> HRep
+    WhCtrl --> HWh
+    DocCtrl --> HDoc
+    IngCtrl --> HIngest
 
-    JobQueue -->|"Procesa en background"| HIngest
+    %% FLUJO 3: CQRS -> INFRAESTRUCTURA (Alineación paralela sin cruces)
+    HCand -->|"Consultas y dictámenes"| AppDb
+    HJob -->|"Lectura de vacantes"| AppDb
+    HRep -->|"Persiste informe"| AppDb
+    HRep -->|"Genera documento"| PdfGen
+    HWh -->|"Actualiza estado"| AppDb
+    HWh -->|"Procesa payload"| AiRouter
+    HDoc -->|"I/O de CV original"| StorageSvc
 
-    HIngest -->|"Calcula calce"| HJobFit
-    HIngest -->|"Sanitiza texto"| Sanitizer
-    HIngest -->|"Inferencia IA"| AiRouter
-    HIngest -->|"Persiste datos"| AppDb
-    HIngest -->|"Almacena PDF"| StorageSvc
+    %% Conexiones del pipeline de Ingesta
+    HIngest -->|"Sanitización"| Sanitizer
+    HIngest -->|"Encolado background"| JobQueue
+    HIngest -->|"Almacena CV original"| StorageSvc
+    HIngest -->|"Extracción y preguntas"| AiRouter
+    HIngest -->|"Persiste expediente"| AppDb
 
-    HGetCand -->|"Consultas por lote"| AppDb
-    HGetCand -->|"Calcula scores"| HJobFit
-    HGetCvDoc -->|"Recupera binario"| StorageSvc
-    HReportPdf -->|"Renderiza"| PdfGen
-
-    HIngest -.->|"Crea / Modifica"| EntCandidate
-    HGetCand -.->|"Mapea a DTOs"| EntCandidate
-    HGetCvDoc -.->|"Coteja documento"| EntCandidate
-    HJobFit -.->|"Compara con perfil"| EntJob
-
-    AppDb -->|"TCP / Puerto 5432"| Postgres
-    AiRouter -->|"HTTPS / JSON"| GeminiAPI
-    StorageSvc -->|"I/O Seguro"| StorageVol
+    %% FLUJO 4: INFRAESTRUCTURA -> DESTINOS EXTERNOS
+    AppDb -->|"TCP 5432 / Npgsql"| Postgres
+    AiRouter -->|"HTTPS TLS 1.3"| GeminiCloud
+    StorageSvc -->|"I/O Criptoseguro"| StorageVol
 ```
 
 ---
