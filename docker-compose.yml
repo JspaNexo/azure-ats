@@ -54,10 +54,9 @@ services:
       - Storage__BasePath=/app/Storage
       - Gemini__ApiKey=${Gemini__ApiKey}
       - Gemini__Model=${Gemini__Model:-gemini-flash-lite-latest}
+      - Gemini__UseMockData=${Gemini__UseMockData:-false}
       - Ingestion__ApiKey=${Ingestion__ApiKey:-ats_internal_dev_key_2026}
       - Webhooks__Secret=${Webhooks__Secret:-ats_webhook_secret_2026}
-      - N8n__WebhookCvUrl=http://n8n:5678/webhook/cv-analysis
-      - N8n__WebhookDiscUrl=http://n8n:5678/webhook/disc-interpretation
       - Authentication__Authority=http://keycloak:8080/realms/ats-realm
       - Authentication__ValidIssuer=http://localhost:8085/realms/ats-realm
       - Authentication__Audience=ats-backend
@@ -85,30 +84,7 @@ services:
     networks:
       - ats_network
 
-  # 5. Workflow Automation Engine (n8n)
-  n8n:
-    image: docker.n8n.io/n8nio/n8n:latest
-    container_name: ats_n8n
-    restart: unless-stopped
-    ports:
-      - "5678:5678"
-    environment:
-      - N8N_HOST=localhost
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=http
-      - WEBHOOK_URL=http://localhost:5678/
-      - GENERIC_TIMEZONE=America/Santo_Domingo
-    volumes:
-      - n8n_data:/home/node/.n8n
-    depends_on:
-      postgres:
-        condition: service_healthy
-      backend:
-        condition: service_started
-    networks:
-      - ats_network
-
-  # 6. Identity & Access Management (Keycloak 26)
+  # 5. Identity & Access Management (Keycloak 26)
   keycloak:
     image: quay.io/keycloak/keycloak:26.1
     container_name: ats_keycloak
@@ -144,4 +120,3 @@ volumes:
   postgres_data:
   seq_data:
   backend_storage:
-  n8n_data:

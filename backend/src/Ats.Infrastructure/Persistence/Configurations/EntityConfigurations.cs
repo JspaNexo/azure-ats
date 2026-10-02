@@ -60,7 +60,7 @@ public class JobPositionConfiguration : IEntityTypeConfiguration<JobPosition>
         builder.Property(j => j.Title).HasColumnName("title").HasMaxLength(150).IsRequired();
         builder.Property(j => j.Department).HasColumnName("department").HasMaxLength(100).IsRequired();
         builder.Property(j => j.Seniority).HasColumnName("seniority").HasMaxLength(50).HasDefaultValue("Senior");
-        builder.Property(j => j.MinExperienceYears).HasColumnName("min_experience_years").HasDefaultValue(3);
+        builder.Property(j => j.MinExperienceYears).HasColumnName("min_experience_years").HasDefaultValue(3).HasSentinel(-1);
         builder.Property(j => j.Description).HasColumnName("description");
         builder.Property(j => j.Requirements).HasColumnName("requirements");
         builder.Property(j => j.Status).HasColumnName("status").HasMaxLength(30).HasDefaultValue("Active");

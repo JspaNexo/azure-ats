@@ -1,0 +1,130 @@
+name: ats-$(Date:yyyyMMdd).$(Rev:r)
+
+trigger:
+  batch: true
+  branches:
+    include:
+      - main
+      - develop
+      - feature/*
+
+# Azure Repos PR validation is configured through branch policies.
+parameters:
+  - name: publishImages
+    displayName: Publish validated images to a container registry
+    type: boolean
+    default: false
+  - name: registryServiceConnection
+    displayName: Docker Registry service connection in Azure DevOps
+    type: string
+    default: configure-registry-service-connection
+  - name: registryHost
+    displayName: Registry hostname without https or a repository path
+    type: string
+    default: registry.example.com
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Validate
+    displayName: Compile and test
+    jobs:
+      - job: Backend
+        displayName: Backend and architecture tests
+        steps:
+          - checkout: self
+          - task: UseDotNet@2
+            inputs:
+              packageType: sdk
+              version: 10.0.x
+          - bash: |
+              set -euo pipefail
+              dotnet restore Ats.slnx
+              dotnet build Ats.slnx --configuration Release --no-restore
+              dotnet test Ats.slnx --configuration Release --no-build --no-restore --logger trx --results-directory "$(Agent.TempDirectory)/ats-tests"
+            displayName: Restore, build and test .NET
+          - task: PublishTestResults@2
+            condition: always()
+            inputs:
+              testResultsFormat: VSTest
+              testResultsFiles: '$(Agent.TempDirectory)/ats-tests/*.trx'
+              failTaskOnFailedTests: true
+              failTaskOnMissingResultsFile: true
+              testRunTitle: ATS backend and Clean Architecture
+
+      - job: Frontend
+        displayName: Frontend TypeScript and bundle
+        steps:
+          - checkout: self
+          - task: NodeTool@0
+            inputs:
+              versionSpec: 22.x
+          - bash: |
+              set -euo pipefail
+              npm ci
+              npm run build
+            workingDirectory: frontend
+            displayName: Install locked dependencies and build
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: frontend/dist
+              artifact: frontend-bundle
+
+  - stage: Containers
+    displayName: Build images and verify integration
+    dependsOn: Validate
+    # Feature pushes run fast validation; integration also gates PRs and publication.
+    condition: and(succeeded(), or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.Reason'], 'Manual'), eq(variables['Build.SourceBranch'], 'refs/heads/main'), eq(variables['Build.SourceBranch'], 'refs/heads/develop')))
+    jobs:
+      - job: Integration
+        timeoutInMinutes: 30
+        cancelTimeoutInMinutes: 5
+        steps:
+          - checkout: self
+          - task: NodeTool@0
+            inputs:
+              versionSpec: 22.x
+          - bash: node automation/scripts/ci-stack.mjs
+            displayName: Build Docker images and run HTTP checks
+            env:
+              ATS_IMAGE_TAG: $(Build.SourceVersion)
+          - bash: node automation/scripts/ci-stack.mjs cleanup
+            displayName: Clean disposable integration resources
+            condition: always()
+          - task: PublishPipelineArtifact@1
+            condition: succeededOrFailed()
+            inputs:
+              targetPath: ci-results
+              artifact: integration-results
+
+          # Uses the same local images tested above; no rebuild before publishing.
+          - ${{ if eq(parameters.publishImages, true) }}:
+              - task: Docker@2
+                displayName: Authenticate to the container registry
+                condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), ne(variables['Build.Reason'], 'PullRequest'))
+                inputs:
+                  command: login
+                  containerRegistry: ${{ parameters.registryServiceConnection }}
+              - bash: |
+                  set -euo pipefail
+                  if [[ ! "$ATS_REGISTRY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*(:[0-9]+)?$ ]] || [[ "$ATS_REGISTRY_HOST" == "registry.example.com" ]]; then
+                    echo "Configure a valid registry hostname before publishing."
+                    exit 1
+                  fi
+                  for module in backend frontend; do
+                    target="$ATS_REGISTRY_HOST/ats/$module:$ATS_IMAGE_TAG"
+                    docker tag "ats-ci-$module:$ATS_IMAGE_TAG" "$target"
+                    docker push "$target"
+                  done
+                displayName: Publish backend and frontend with the commit tag
+                condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), ne(variables['Build.Reason'], 'PullRequest'))
+                env:
+                  ATS_REGISTRY_HOST: ${{ parameters.registryHost }}
+                  ATS_IMAGE_TAG: $(Build.SourceVersion)
+              - task: Docker@2
+                displayName: Close registry session
+                condition: always()
+                inputs:
+                  command: logout
+                  containerRegistry: ${{ parameters.registryServiceConnection }}

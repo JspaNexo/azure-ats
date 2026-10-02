@@ -48,55 +48,33 @@ public class GenerateInterviewReportCommandHandler
 
     public async Task<Result<InterviewReportDto>> HandleAsync(GenerateInterviewReportCommand command, CancellationToken cancellationToken = default)
     {
-        // 1. Check if candidate already has a generated report (Cache / Token Guard)
+        var candidate = await _candidateRepository.GetByIdAsync(command.CandidateId, cancellationToken);
+        if (candidate is null)
+            return Result.Failure<InterviewReportDto>(Error.NotFound("Candidate.NotFound", "Candidato no encontrado."));
+        var cvAnalysis = await _cvAnalysisRepository.GetByCandidateIdAsync(command.CandidateId, cancellationToken);
+        if (cvAnalysis is null || cvAnalysis.Status != ProcessingStatus.Processed)
+            return Result.Failure<InterviewReportDto>(Error.Validation("CvAnalysis.NotReady", "El análisis de CV aún no está procesado."));
+        var discInterpretation = await _discRepository.GetInterpretationByCandidateIdAsync(command.CandidateId, cancellationToken);
+        if (discInterpretation is null || discInterpretation.Status != ProcessingStatus.Processed)
+            return Result.Failure<InterviewReportDto>(Error.Validation("DiscInterpretation.NotReady", "La interpretación DISC aún no está procesada."));
+
         var existingReport = await _reportRepository.GetByCandidateIdAsync(command.CandidateId, cancellationToken);
-        if (existingReport is not null && existingReport.Status == ReportStatus.Generated && !string.IsNullOrEmpty(existingReport.ReportContentJson))
+        var existingJob = await _processingJobRepository.GetByEventIdAsync(command.EventId, cancellationToken);
+        if (existingJob is not null && (existingJob.CandidateId != command.CandidateId || existingJob.ProcessType != ProcessType.InterviewReportGeneration))
+            return Result.Failure<InterviewReportDto>(Error.Conflict("Event.Mismatch", "El evento pertenece a otro proceso o candidato."));
+
+        if (existingReport is not null && existingReport.Status == ReportStatus.Generated &&
+            existingReport.CvAnalysisId == cvAnalysis.Id && existingReport.DiscInterpretationId == discInterpretation.Id &&
+            !string.IsNullOrEmpty(existingReport.ReportContentJson))
         {
             var cachedDto = JsonSerializer.Deserialize<InterviewReportDto>(existingReport.ReportContentJson);
             if (cachedDto is not null) return Result.Success(cachedDto);
         }
 
-        // 2. Idempotency check via ProcessingJob
-        var existingJob = await _processingJobRepository.GetByEventIdAsync(command.EventId, cancellationToken);
-        if (existingJob is not null && existingJob.Status == ProcessingStatus.Processed)
-        {
-            if (existingReport is not null && !string.IsNullOrEmpty(existingReport.ReportContentJson))
-            {
-                var cachedDto = JsonSerializer.Deserialize<InterviewReportDto>(existingReport.ReportContentJson);
-                if (cachedDto is not null) return Result.Success(cachedDto);
-            }
-        }
-
         var job = existingJob ?? ProcessingJob.Create(command.CandidateId, ProcessType.InterviewReportGeneration, command.EventId, command.CorrelationId);
         if (existingJob is null) await _processingJobRepository.AddAsync(job, cancellationToken);
-
         job.MarkAsProcessing();
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        // 2. Fetch Candidate, CV Analysis, and DISC Interpretation
-        var candidate = await _candidateRepository.GetByIdAsync(command.CandidateId, cancellationToken);
-        if (candidate is null)
-        {
-            job.MarkAsFailed("Candidate.NotFound", "Candidato no encontrado.");
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return Result.Failure<InterviewReportDto>(Error.NotFound("Candidate.NotFound", "Candidato no encontrado."));
-        }
-
-        var cvAnalysis = await _cvAnalysisRepository.GetByCandidateIdAsync(command.CandidateId, cancellationToken);
-        if (cvAnalysis is null || cvAnalysis.Status != ProcessingStatus.Processed)
-        {
-            job.MarkAsFailed("CvAnalysis.NotReady", "El análisis de CV aún no está procesado.");
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return Result.Failure<InterviewReportDto>(Error.Validation("CvAnalysis.NotReady", "El análisis de CV aún no está procesado."));
-        }
-
-        var discInterpretation = await _discRepository.GetInterpretationByCandidateIdAsync(command.CandidateId, cancellationToken);
-        if (discInterpretation is null || discInterpretation.Status != ProcessingStatus.Processed)
-        {
-            job.MarkAsFailed("DiscInterpretation.NotReady", "La interpretación DISC aún no está procesada.");
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return Result.Failure<InterviewReportDto>(Error.Validation("DiscInterpretation.NotReady", "La interpretación DISC aún no está procesada."));
-        }
 
         var cvDto = JsonSerializer.Deserialize<CvAnalysisDto>(cvAnalysis.AnalysisJson);
         var discDto = JsonSerializer.Deserialize<DiscInterpretationDto>(discInterpretation.InterpretationJson);
@@ -147,22 +125,24 @@ public class GenerateInterviewReportCommandHandler
 
         // 5. Render PDF Document
         var pdfResult = await _documentRenderer.RenderReportPdfAsync(reportDto, cancellationToken);
-        string? fileUrl = null;
-        if (pdfResult.IsSuccess && pdfResult.Value.Length > 0)
+        if (pdfResult.IsFailure || pdfResult.Value.Length == 0)
         {
-            using var memoryStream = new MemoryStream(pdfResult.Value);
-            fileUrl = await _storageService.SaveFileAsync(
-                memoryStream,
-                $"informe_preentrevista_{candidate.Id}.pdf",
-                "application/pdf",
-                cancellationToken);
+            var error = pdfResult.IsFailure ? pdfResult.Error : Error.Failure("Report.EmptyPdf", "El PDF generado está vacío.");
+            job.MarkAsFailed(error.Code, error.Description);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return Result.Failure<InterviewReportDto>(error);
         }
+        using var memoryStream = new MemoryStream(pdfResult.Value);
+        var fileUrl = await _storageService.SaveFileAsync(
+            memoryStream,
+            $"informe_preentrevista_{candidate.Id}.pdf",
+            "application/pdf",
+            cancellationToken);
 
         reportDto = reportDto with { FileUrl = fileUrl };
 
         // 6. Persist Report Entity
-        var report = await _reportRepository.GetByCandidateIdAsync(command.CandidateId, cancellationToken)
-            ?? InterviewReport.CreateInitial(command.CandidateId);
+        var report = InterviewReport.CreateInitial(command.CandidateId, (existingReport?.Version ?? 0) + 1);
 
         string reportJson = JsonSerializer.Serialize(reportDto);
         report.MarkAsGenerated(
@@ -171,17 +151,10 @@ public class GenerateInterviewReportCommandHandler
             reportJson,
             fileUrl,
             "GoogleGemini",
-            "gemini-1.5-flash",
+            "configured-model",
             "v1.0");
 
-        if (report.Id == Guid.Empty || await _reportRepository.GetByIdAsync(report.Id, cancellationToken) is null)
-        {
-            await _reportRepository.AddAsync(report, cancellationToken);
-        }
-        else
-        {
-            _reportRepository.Update(report);
-        }
+        await _reportRepository.AddAsync(report, cancellationToken);
 
         job.MarkAsProcessed();
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -226,4 +199,3 @@ public class GetInterviewReportQueryHandler
         return Result.Success(dto);
     }
 }
-

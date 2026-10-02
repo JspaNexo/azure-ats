@@ -1,57 +1,18 @@
-# Modulo de Automatizacion (Flujos n8n y Webhooks)
+# Comprobaciones HTTP
 
-Este directorio contiene las definiciones declarativas de flujos de trabajo en formato JSON para el motor de orquestacion **n8n** y la arquitectura de comunicacion por webhooks seguros con el backend de TalentIQ ATS.
+La integración completa para Azure DevOps y ejecución local está documentada en [automatizaciones DevOps](../docs/automatizaciones-devops.md). Puede iniciarla con `node automation/scripts/ci-stack.mjs`; crea y limpia sus servicios temporales automáticamente.
 
----
+La web ejecuta el pipeline síncrono mediante `/api/v1/ingestion/evaluate`. Los casos de uso de Application coordinan el análisis del CV, la interpretación DISC y la generación del informe. Guardan datos entre etapas; una falla puede requerir un reintento.
 
-## 1. Estructura de Flujos
+## Prueba HTTP de integración
 
-```text
-automation/
-└── n8n/
-    └── workflows/
-        ├── cv-processing.json      # Orquestacion asincrona de extraccion y analisis curricular
-        ├── disc-processing.json    # Orquestacion asincrona de perfil conductual DISC
-        └── report-generation.json  # Orquestacion de consolidacion y generacion del reporte ejecutivo
+`scripts/smoke-api.mjs` ejecuta un flujo de integración con 23 solicitudes a la API, tokens reales de Keycloak, IA simulada explícitamente, reprocesamiento y descarga PDF. Crea candidatos y vacantes; ejecútelo sobre una base aislada. El total de solicitudes no representa 23 pruebas independientes; consulte [la revisión de pruebas](../docs/revision-pruebas.md).
+
+```powershell
+dotnet test Ats.slnx
+node automation/scripts/smoke-api.mjs
 ```
 
----
+Antes de ejecutar el script HTTP por separado, inicie una API en 15027 con PostgreSQL de pruebas y `Gemini__UseMockData=true`, y Keycloak con el realm del proyecto en 18085. El CV PDF ficticio se genera en memoria; `ATS_SMOKE_PDF_PATH` permite utilizar otro archivo. Puede configurar `ATS_SMOKE_API_URL`, `ATS_SMOKE_KEYCLOAK_URL`, `ATS_SMOKE_ADMIN_PASSWORD` y `ATS_SMOKE_RECRUITER_PASSWORD`.
 
-## 2. Modos de Procesamiento Disponibles
-
-El sistema soporta dos modalidades de ejecucion complementarias:
-
-1. **Ingesta Sincrona en Tiempo Real (Recomendada para la Web UI):**
-   - El frontend consume directamente el endpoint `POST /api/v1/ingestion/evaluate`.
-   - Se procesa la extraccion de PDF, sanitizacion anti-prompt injection, analisis con Gemini AI, calculo DISC y generacion de preguntas STAR en una sola transaccion interactiva con reporte inmediato.
-
-2. **Ingesta Asincrona por Lotes (Orquestada por n8n):**
-   - Adecuada para cargas masivas nocturnas o integracion con sistemas externos de terceros.
-   - n8n detecta o recibe el documento y coordina las etapas invocando los webhooks correspondientes en el backend.
-
----
-
-## 3. Seguridad Criptografica de Webhooks
-
-Para garantizar la integridad y autenticidad de los datos provenientes de n8n, el backend implementa una validacion estricta en [`WebhooksController.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Api/Controllers/WebhooksController.cs):
-
-- **Encabezado Requerido:** `X-ATS-Signature`.
-- **Algoritmo:** HMAC SHA-256 calculado sobre el cuerpo bruto de la solicitud HTTP (raw body) utilizando el secreto compartido configurado en `Webhooks__Secret`.
-- **Prevencion de Ataques de Canal Lateral (Timing Attacks):** La comparacion entre el hash computado y el recibido en el encabezado se realiza mediante `CryptographicOperations.FixedTimeEquals`.
-- **Endpoints Protegidos:**
-  - `POST /api/v1/webhooks/cv-processed`
-  - `POST /api/v1/webhooks/disc-processed`
-
----
-
-## 4. Procedimiento de Importacion y Activacion en n8n
-
-1. Confirmar que el contenedor de automatizacion este activo y saludable:
-   ```bash
-   docker compose up -d n8n
-   ```
-2. Acceder a la interfaz web de n8n en [http://localhost:5678](http://localhost:5678).
-3. En el panel lateral de Workflows, seleccionar la opcion **Import from File...** y elegir el archivo `.json` correspondiente dentro de `automation/n8n/workflows/`.
-4. Configurar las credenciales o variables de entorno del webhook (URL del backend: `http://backend:8080` dentro de la red Docker, clave compartida).
-5. Activar el flujo conmutando el estado a **Active**.
-
+Consulte [la revisión técnica](../docs/revision-tecnica.md) para resultados y limitaciones.

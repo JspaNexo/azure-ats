@@ -1,0 +1,75 @@
+# Disposable integration environment. Do not use for deployment.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ci-postgres-only
+      POSTGRES_DB: ats_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ats_db"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ci-keycloak-only
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak_db
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: ci-postgres-only
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "127.0.0.1::8080"
+    volumes:
+      - ../keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ../keycloak/themes:/opt/keycloak/themes:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    image: ats-ci-backend:${ATS_IMAGE_TAG:-local}
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=ats_db;Username=postgres;Password=ci-postgres-only
+      Storage__BasePath: /app/Storage
+      Gemini__ApiKey: ""
+      Gemini__UseMockData: "true"
+      Authentication__Authority: http://keycloak:8080/realms/ats-realm
+      Authentication__ValidIssuer: ${ATS_CI_ISSUER:-http://localhost:8080/realms/ats-realm}
+      Authentication__Audience: ats-backend
+      Serilog__MinimumLevel__Override__System.Net.Http.HttpClient: Warning
+    ports:
+      - "127.0.0.1::8080"
+    volumes:
+      - backend_storage:/app/Storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    image: ats-ci-frontend:${ATS_IMAGE_TAG:-local}
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "127.0.0.1::80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  backend_storage:

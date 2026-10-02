@@ -108,8 +108,8 @@ export interface Candidate {
   createdAtUtc: string;
   targetRole: string;
   seniority: string;
-  experienceYears: number;
-  matchScore: number;
+  experienceYears: number | null;
+  matchScore: number | null;
   primaryDiscStyle: string;
   status: 'Registered' | 'CvAnalyzed' | 'DiscEvaluated' | 'ReportReady';
   cvAnalysis?: CvAnalysisDto | null;
@@ -123,6 +123,12 @@ export interface Candidate {
   assignedRecruiterEmail?: string | null;
   assignedAtUtc?: string | null;
   jobPositionId?: string | null;
+  discScores?: {
+    dominance: number;
+    influence: number;
+    steadiness: number;
+    conscientiousness: number;
+  } | null;
 }
 
 export interface JobPosition {

@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<ProcessDiscInterpretationCommandHandler>();
         services.AddScoped<GenerateInterviewReportCommandHandler>();
         services.AddScoped<GetInterviewReportQueryHandler>();
+        services.AddScoped<DownloadInterviewReportQueryHandler>();
         services.AddScoped<IngestCandidateCommandHandler>();
         services.AddScoped<UpdateEvaluatorDecisionCommandHandler>();
         services.AddScoped<AssignCandidateCommandHandler>();

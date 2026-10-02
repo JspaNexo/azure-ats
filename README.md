@@ -1,5 +1,9 @@
 # ATS TalentIQ - Sistema Integral de Evaluacion y Seleccion de Talento Asistido por IA
 
+Estado verificado, correcciones de arquitectura y límites de la revisión: [revisión técnica](docs/revision-tecnica.md).
+
+Pipeline de Azure DevOps, pruebas de integración con Docker y publicación opcional de imágenes: [automatizaciones DevOps](docs/automatizaciones-devops.md).
+
 Plataforma empresarial contenerizada para la gestion de vacantes, ingesta curricular automatizada y evaluacion tecnica y conductual de candidatos asistida por Inteligencia Artificial (Google Gemini AI) y metodologia conductual DISC. 
 
 Diseñado bajo principios de Clean Architecture en .NET 10, autenticacion centralizada Keycloak 26 con tema personalizado corporativo, control de acceso basado en roles (RBAC), blindaje multicapa contra ataques de Prompt Injection y una interfaz web en React 19 totalmente responsiva y adaptativa para dispositivos moviles, tabletas y escritorio.
@@ -37,11 +41,13 @@ ats/
 ├── database/
 │   └── init/                           # Scripts SQL de migracion (01-schema al 06-job-positions)
 ├── automation/
-│   ├── n8n/workflows/                  # Definicion de flujos declarativos n8n para procesamiento asincrono
-│   └── README.md                       # Documentacion de automatizacion y webhooks
+│   ├── compose.ci.yml                  # Entorno temporal de integracion para CI
+│   ├── scripts/                       # Arranque, pruebas HTTP, CV ficticio y limpieza
+│   └── README.md                       # Instrucciones de pruebas de integracion
 ├── docs/                               # Documentos de diseno de software (sdd.md, mvp.md)
 ├── infra/                              # Configuracion de infraestructura y despliegue
 ├── docker-compose.yml                  # Orquestacion integral de servicios
+├── azure-pipelines.yml                 # Validacion, integracion y publicacion opcional de imagenes
 └── README.md                           # Documentacion general del sistema
 ```
 
@@ -55,7 +61,7 @@ ats/
 - **Inteligencia Artificial:** Google Gemini AI (modelo `gemini-flash-lite-latest` con cadena de resiliencia y respaldo multi-modelo a `gemini-3.1-flash-lite` y `gemini-3.5-flash-lite`), estructuracion JSON estricta, systemInstruction nativo y defensas anti-prompt injection.
 - **Frontend:** React 19, TypeScript, Tailwind CSS, Vite, Lucide Icons y arquitectura de diseno responsive mobile-first.
 - **Observabilidad:** Seq y Serilog para ingesta centralizada de logs estructurados con trazabilidad de correlacion.
-- **Orquestacion de Flujos:** n8n para tareas de automatizacion batch y webhooks con firma criptografica HMAC SHA-256.
+- **Flujo de Evaluacion:** casos de uso de Application coordinan el analisis de CV, la interpretacion DISC y la generacion del informe desde la API.
 - **Infraestructura:** Docker y Docker Compose con redes aisladas y politicas de reinicio automatico.
 
 ---
@@ -72,7 +78,6 @@ Al levantar el entorno con Docker Compose, los siguientes servicios quedan dispo
 | **Servidor Keycloak** | `ats_keycloak` | [http://localhost:8085](http://localhost:8085) | Servidor de Identidad OIDC y Roles | Realm: `ats-realm` (admin / admin) |
 | **Base de Datos** | `ats_postgres` | `localhost:5433` | PostgreSQL 16 Relacional | `ats_db` / `postgres` / `postgres` |
 | **Observabilidad Seq** | `ats_seq` | [http://localhost:8080](http://localhost:8080) | Panel de telemetria y logs estructurados | Usuario: `admin` / Clave: `Admin12345!` |
-| **Automatizacion n8n** | `ats_n8n` | [http://localhost:5678](http://localhost:5678) | Orquestador de flujos declarativos | Configuracion inicial de cuenta |
 
 ### Cuentas de Acceso Preconfiguradas en Keycloak
 
@@ -162,7 +167,7 @@ El sistema valida criptograficamente los tokens JWT emitidos por Keycloak en cad
 
 ### 6.2 Mitigaciones de Seguridad del Backend
 - **Proteccion contra Path Traversal:** En [`StorageService.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Infrastructure/Services/Storage/StorageService.cs), todas las rutas de almacenamiento de archivos se resuelven de forma absoluta y se validan contra el directorio base mediante `Path.GetFullPath()`, rechazando intentos de salto de directorio (`..`).
-- **Validacion Criptografica de Webhooks:** En [`WebhooksController.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Api/Controllers/WebhooksController.cs), la firma HMAC SHA-256 del encabezado `X-ATS-Signature` se valida mediante `CryptographicOperations.FixedTimeEquals` para prevenir ataques de canal lateral basados en tiempo (Timing Attacks).
+- **Autenticacion de Webhooks:** Los endpoints de [Controllers.cs](backend/src/Ats.Api/Controllers/Controllers.cs) aceptan un token con rol autorizado o el encabezado `X-Webhook-Secret`. La implementación actual no firma el cuerpo mediante HMAC.
 - **Manejo Global de Excepciones:** [`GlobalExceptionHandlerMiddleware.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Api/Middlewares/GlobalExceptionHandlerMiddleware.cs) captura cualquier excepcion no controlada y emite respuestas estandarizadas RFC 7807 (ProblemDetails), suprimiendo volcados de memoria y trazas de ejecucion internas.
 - **Proteccion de Credenciales Sensibles:** Las claves de API de Google Gemini y secretos de webhooks se gestionan exclusivamente a traves de variables de entorno del sistema (`Gemini__ApiKey`, `Webhooks__Secret`), sin persistencia de credenciales en codigo fuente o repositorios publicos.
 
@@ -219,7 +224,7 @@ docker compose down
 El proyecto incluye una suite completa de pruebas unitarias y de seguridad con xUnit en `backend/tests/Ats.Tests`:
 
 ```bash
-dotnet test backend/tests/Ats.Tests/Ats.Tests.csproj
+dotnet test Ats.slnx
 ```
 
 ### Casos de Prueba Incluidos:
@@ -239,7 +244,7 @@ dotnet test backend/tests/Ats.Tests/Ats.Tests.csproj
 - **Fase 4:** Autenticacion centralizada Keycloak 26 (OIDC/PKCE) con RBAC (`ats_admin` y `ats_recruiter`).
 - **Fase 5:** Blindaje multicapa contra Prompt Injection y alertas de integridad curricular.
 - **Fase 6:** Modulo formal de Vacantes (`Job Positions`), carga directa de postulantes con IA en vivo y optimizacion responsiva multi-dispositivo.
-- **Fase 7:** Auditoria de seguridad y mitigaciones (Path Traversal, HMAC timing-safe, exception handler global, tema Keycloak corporativo responsive).
+- **Fase 7:** Mitigaciones de Path Traversal, autenticación de webhooks, exception handler global y tema Keycloak corporativo responsive.
 
 ### Fases Planificadas
 - **Fase 8:** Notificaciones en tiempo real via WebSockets/SignalR para avisar inmediatamente al reclutador ante nuevas delegaciones de expedientes.

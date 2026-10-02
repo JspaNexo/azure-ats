@@ -4,7 +4,7 @@ TRUNCATE TABLE processing_jobs, candidate_interview_reports, candidate_disc_inte
 -- =========================================================================================
 -- CANDIDATO 1: Sofía Valenzuela Navarro - Tech Lead / Software Architect (.NET & Cloud)
 -- =========================================================================================
-INSERT INTO candidates ("Id", "FirstName", "LastName", email, "PhoneNumber", "CreatedAtUtc")
+INSERT INTO candidates (id, first_name, last_name, email, phone_number, created_at_utc)
 VALUES (
     '11111111-1111-1111-1111-111111111111',
     'Sofía',
@@ -14,7 +14,7 @@ VALUES (
     NOW() - INTERVAL '2 days'
 );
 
-INSERT INTO cv_documents ("Id", "CandidateId", "FileName", "StoragePath", "FileSizeBytes", "ContentType", "UploadedAtUtc")
+INSERT INTO cv_documents (id, candidate_id, file_name, storage_path, file_size_bytes, content_type, uploaded_at_utc)
 VALUES (
     '11111111-1111-1111-1111-222222222222',
     '11111111-1111-1111-1111-111111111111',
@@ -25,7 +25,7 @@ VALUES (
     NOW() - INTERVAL '2 days'
 );
 
-INSERT INTO candidate_cv_analyses ("Id", "CandidateId", "DocumentId", "AnalysisJson", "Status", "ProviderName", "ModelName", "PromptVersion", "CreatedAtUtc")
+INSERT INTO candidate_cv_analyses (id, candidate_id, document_id, analysis_json, status, provider_name, model_name, prompt_version, created_at_utc)
 VALUES (
     '11111111-1111-1111-1111-333333333333',
     '11111111-1111-1111-1111-111111111111',
@@ -71,7 +71,7 @@ VALUES (
     NOW() - INTERVAL '2 days'
 );
 
-INSERT INTO candidate_disc_results ("Id", "CandidateId", dominance, influence, steadiness, conscientiousness, primary_style, "CompletedAtUtc")
+INSERT INTO candidate_disc_results (id, candidate_id, dominance, influence, steadiness, conscientiousness, primary_style, completed_at_utc)
 VALUES (
     '11111111-1111-1111-1111-444444444444',
     '11111111-1111-1111-1111-111111111111',
@@ -83,7 +83,7 @@ VALUES (
     NOW() - INTERVAL '2 days'
 );
 
-INSERT INTO candidate_disc_interpretations ("Id", "CandidateId", "DiscResultId", "InterpretationJson", "Status", "ProviderName", "ModelName", "PromptVersion", "CreatedAtUtc")
+INSERT INTO candidate_disc_interpretations (id, candidate_id, disc_result_id, interpretation_json, status, provider_name, model_name, prompt_version, created_at_utc)
 VALUES (
     '11111111-1111-1111-1111-555555555555',
     '11111111-1111-1111-1111-111111111111',
@@ -113,7 +113,7 @@ VALUES (
     NOW() - INTERVAL '2 days'
 );
 
-INSERT INTO candidate_interview_reports ("Id", "CandidateId", "CvAnalysisId", "DiscInterpretationId", "ReportContentJson", "FileUrl", "Status", "Version", "ProviderName", "ModelName", "PromptVersion", "GeneratedAtUtc", "CreatedAtUtc")
+INSERT INTO candidate_interview_reports (id, candidate_id, cv_analysis_id, disc_interpretation_id, report_content_json, file_url, status, version, provider_name, model_name, prompt_version, generated_at_utc, created_at_utc)
 VALUES (
     '11111111-1111-1111-1111-666666666666',
     '11111111-1111-1111-1111-111111111111',
@@ -190,7 +190,7 @@ VALUES (
 -- =========================================================================================
 -- CANDIDATO 2: Carlos Mendoza Rivas - Senior Backend Developer (.NET & PostgreSQL)
 -- =========================================================================================
-INSERT INTO candidates ("Id", "FirstName", "LastName", email, "PhoneNumber", "CreatedAtUtc")
+INSERT INTO candidates (id, first_name, last_name, email, phone_number, created_at_utc)
 VALUES (
     '22222222-2222-2222-2222-111111111111',
     'Carlos',
@@ -200,7 +200,7 @@ VALUES (
     NOW() - INTERVAL '1 day'
 );
 
-INSERT INTO cv_documents ("Id", "CandidateId", "FileName", "StoragePath", "FileSizeBytes", "ContentType", "UploadedAtUtc")
+INSERT INTO cv_documents (id, candidate_id, file_name, storage_path, file_size_bytes, content_type, uploaded_at_utc)
 VALUES (
     '22222222-2222-2222-2222-222222222222',
     '22222222-2222-2222-2222-111111111111',
@@ -211,7 +211,7 @@ VALUES (
     NOW() - INTERVAL '1 day'
 );
 
-INSERT INTO candidate_cv_analyses ("Id", "CandidateId", "DocumentId", "AnalysisJson", "Status", "ProviderName", "ModelName", "PromptVersion", "CreatedAtUtc")
+INSERT INTO candidate_cv_analyses (id, candidate_id, document_id, analysis_json, status, provider_name, model_name, prompt_version, created_at_utc)
 VALUES (
     '22222222-2222-2222-2222-333333333333',
     '22222222-2222-2222-2222-111111111111',
@@ -255,7 +255,7 @@ VALUES (
     NOW() - INTERVAL '1 day'
 );
 
-INSERT INTO candidate_disc_results ("Id", "CandidateId", dominance, influence, steadiness, conscientiousness, primary_style, "CompletedAtUtc")
+INSERT INTO candidate_disc_results (id, candidate_id, dominance, influence, steadiness, conscientiousness, primary_style, completed_at_utc)
 VALUES (
     '22222222-2222-2222-2222-444444444444',
     '22222222-2222-2222-2222-111111111111',
@@ -267,7 +267,7 @@ VALUES (
     NOW() - INTERVAL '1 day'
 );
 
-INSERT INTO candidate_disc_interpretations ("Id", "CandidateId", "DiscResultId", "InterpretationJson", "Status", "ProviderName", "ModelName", "PromptVersion", "CreatedAtUtc")
+INSERT INTO candidate_disc_interpretations (id, candidate_id, disc_result_id, interpretation_json, status, provider_name, model_name, prompt_version, created_at_utc)
 VALUES (
     '22222222-2222-2222-2222-555555555555',
     '22222222-2222-2222-2222-111111111111',
@@ -297,7 +297,7 @@ VALUES (
     NOW() - INTERVAL '1 day'
 );
 
-INSERT INTO candidate_interview_reports ("Id", "CandidateId", "CvAnalysisId", "DiscInterpretationId", "ReportContentJson", "FileUrl", "Status", "Version", "ProviderName", "ModelName", "PromptVersion", "GeneratedAtUtc", "CreatedAtUtc")
+INSERT INTO candidate_interview_reports (id, candidate_id, cv_analysis_id, disc_interpretation_id, report_content_json, file_url, status, version, provider_name, model_name, prompt_version, generated_at_utc, created_at_utc)
 VALUES (
     '22222222-2222-2222-2222-666666666666',
     '22222222-2222-2222-2222-111111111111',
@@ -374,7 +374,7 @@ VALUES (
 -- =========================================================================================
 -- CANDIDATO 3: Valeria Herrera Morales - Senior Fullstack Engineer (React & .NET)
 -- =========================================================================================
-INSERT INTO candidates ("Id", "FirstName", "LastName", email, "PhoneNumber", "CreatedAtUtc")
+INSERT INTO candidates (id, first_name, last_name, email, phone_number, created_at_utc)
 VALUES (
     '33333333-3333-3333-3333-111111111111',
     'Valeria',
@@ -384,7 +384,7 @@ VALUES (
     NOW() - INTERVAL '18 hours'
 );
 
-INSERT INTO cv_documents ("Id", "CandidateId", "FileName", "StoragePath", "FileSizeBytes", "ContentType", "UploadedAtUtc")
+INSERT INTO cv_documents (id, candidate_id, file_name, storage_path, file_size_bytes, content_type, uploaded_at_utc)
 VALUES (
     '33333333-3333-3333-3333-222222222222',
     '33333333-3333-3333-3333-111111111111',
@@ -395,7 +395,7 @@ VALUES (
     NOW() - INTERVAL '18 hours'
 );
 
-INSERT INTO candidate_cv_analyses ("Id", "CandidateId", "DocumentId", "AnalysisJson", "Status", "ProviderName", "ModelName", "PromptVersion", "CreatedAtUtc")
+INSERT INTO candidate_cv_analyses (id, candidate_id, document_id, analysis_json, status, provider_name, model_name, prompt_version, created_at_utc)
 VALUES (
     '33333333-3333-3333-3333-333333333333',
     '33333333-3333-3333-3333-111111111111',
@@ -439,7 +439,7 @@ VALUES (
     NOW() - INTERVAL '18 hours'
 );
 
-INSERT INTO candidate_disc_results ("Id", "CandidateId", dominance, influence, steadiness, conscientiousness, primary_style, "CompletedAtUtc")
+INSERT INTO candidate_disc_results (id, candidate_id, dominance, influence, steadiness, conscientiousness, primary_style, completed_at_utc)
 VALUES (
     '33333333-3333-3333-3333-444444444444',
     '33333333-3333-3333-3333-111111111111',
@@ -451,7 +451,7 @@ VALUES (
     NOW() - INTERVAL '18 hours'
 );
 
-INSERT INTO candidate_disc_interpretations ("Id", "CandidateId", "DiscResultId", "InterpretationJson", "Status", "ProviderName", "ModelName", "PromptVersion", "CreatedAtUtc")
+INSERT INTO candidate_disc_interpretations (id, candidate_id, disc_result_id, interpretation_json, status, provider_name, model_name, prompt_version, created_at_utc)
 VALUES (
     '33333333-3333-3333-3333-555555555555',
     '33333333-3333-3333-3333-111111111111',
@@ -481,7 +481,7 @@ VALUES (
     NOW() - INTERVAL '18 hours'
 );
 
-INSERT INTO candidate_interview_reports ("Id", "CandidateId", "CvAnalysisId", "DiscInterpretationId", "ReportContentJson", "FileUrl", "Status", "Version", "ProviderName", "ModelName", "PromptVersion", "GeneratedAtUtc", "CreatedAtUtc")
+INSERT INTO candidate_interview_reports (id, candidate_id, cv_analysis_id, disc_interpretation_id, report_content_json, file_url, status, version, provider_name, model_name, prompt_version, generated_at_utc, created_at_utc)
 VALUES (
     '33333333-3333-3333-3333-666666666666',
     '33333333-3333-3333-3333-111111111111',
@@ -558,7 +558,7 @@ VALUES (
 -- =========================================================================================
 -- CANDIDATO 4: Alejandro Gómez Castillo - DevOps & Cloud Infrastructure Engineer
 -- =========================================================================================
-INSERT INTO candidates ("Id", "FirstName", "LastName", email, "PhoneNumber", "CreatedAtUtc")
+INSERT INTO candidates (id, first_name, last_name, email, phone_number, created_at_utc)
 VALUES (
     '44444444-4444-4444-4444-111111111111',
     'Alejandro',
@@ -568,7 +568,7 @@ VALUES (
     NOW() - INTERVAL '12 hours'
 );
 
-INSERT INTO cv_documents ("Id", "CandidateId", "FileName", "StoragePath", "FileSizeBytes", "ContentType", "UploadedAtUtc")
+INSERT INTO cv_documents (id, candidate_id, file_name, storage_path, file_size_bytes, content_type, uploaded_at_utc)
 VALUES (
     '44444444-4444-4444-4444-222222222222',
     '44444444-4444-4444-4444-111111111111',
@@ -579,7 +579,7 @@ VALUES (
     NOW() - INTERVAL '12 hours'
 );
 
-INSERT INTO candidate_cv_analyses ("Id", "CandidateId", "DocumentId", "AnalysisJson", "Status", "ProviderName", "ModelName", "PromptVersion", "CreatedAtUtc")
+INSERT INTO candidate_cv_analyses (id, candidate_id, document_id, analysis_json, status, provider_name, model_name, prompt_version, created_at_utc)
 VALUES (
     '44444444-4444-4444-4444-333333333333',
     '44444444-4444-4444-4444-111111111111',
@@ -624,7 +624,7 @@ VALUES (
     NOW() - INTERVAL '12 hours'
 );
 
-INSERT INTO candidate_disc_results ("Id", "CandidateId", dominance, influence, steadiness, conscientiousness, primary_style, "CompletedAtUtc")
+INSERT INTO candidate_disc_results (id, candidate_id, dominance, influence, steadiness, conscientiousness, primary_style, completed_at_utc)
 VALUES (
     '44444444-4444-4444-4444-444444444444',
     '44444444-4444-4444-4444-111111111111',
@@ -636,7 +636,7 @@ VALUES (
     NOW() - INTERVAL '12 hours'
 );
 
-INSERT INTO candidate_disc_interpretations ("Id", "CandidateId", "DiscResultId", "InterpretationJson", "Status", "ProviderName", "ModelName", "PromptVersion", "CreatedAtUtc")
+INSERT INTO candidate_disc_interpretations (id, candidate_id, disc_result_id, interpretation_json, status, provider_name, model_name, prompt_version, created_at_utc)
 VALUES (
     '44444444-4444-4444-4444-555555555555',
     '44444444-4444-4444-4444-111111111111',
@@ -666,7 +666,7 @@ VALUES (
     NOW() - INTERVAL '12 hours'
 );
 
-INSERT INTO candidate_interview_reports ("Id", "CandidateId", "CvAnalysisId", "DiscInterpretationId", "ReportContentJson", "FileUrl", "Status", "Version", "ProviderName", "ModelName", "PromptVersion", "GeneratedAtUtc", "CreatedAtUtc")
+INSERT INTO candidate_interview_reports (id, candidate_id, cv_analysis_id, disc_interpretation_id, report_content_json, file_url, status, version, provider_name, model_name, prompt_version, generated_at_utc, created_at_utc)
 VALUES (
     '44444444-4444-4444-4444-666666666666',
     '44444444-4444-4444-4444-111111111111',
@@ -743,7 +743,7 @@ VALUES (
 -- =========================================================================================
 -- CANDIDATO 5: Mariana Pineda Ruiz - Senior Data Engineer & Analytics
 -- =========================================================================================
-INSERT INTO candidates ("Id", "FirstName", "LastName", email, "PhoneNumber", "CreatedAtUtc")
+INSERT INTO candidates (id, first_name, last_name, email, phone_number, created_at_utc)
 VALUES (
     '55555555-5555-5555-5555-111111111111',
     'Mariana',
@@ -753,7 +753,7 @@ VALUES (
     NOW() - INTERVAL '6 hours'
 );
 
-INSERT INTO cv_documents ("Id", "CandidateId", "FileName", "StoragePath", "FileSizeBytes", "ContentType", "UploadedAtUtc")
+INSERT INTO cv_documents (id, candidate_id, file_name, storage_path, file_size_bytes, content_type, uploaded_at_utc)
 VALUES (
     '55555555-5555-5555-5555-222222222222',
     '55555555-5555-5555-5555-111111111111',
@@ -764,7 +764,7 @@ VALUES (
     NOW() - INTERVAL '6 hours'
 );
 
-INSERT INTO candidate_cv_analyses ("Id", "CandidateId", "DocumentId", "AnalysisJson", "Status", "ProviderName", "ModelName", "PromptVersion", "CreatedAtUtc")
+INSERT INTO candidate_cv_analyses (id, candidate_id, document_id, analysis_json, status, provider_name, model_name, prompt_version, created_at_utc)
 VALUES (
     '55555555-5555-5555-5555-333333333333',
     '55555555-5555-5555-5555-111111111111',
@@ -808,7 +808,7 @@ VALUES (
     NOW() - INTERVAL '6 hours'
 );
 
-INSERT INTO candidate_disc_results ("Id", "CandidateId", dominance, influence, steadiness, conscientiousness, primary_style, "CompletedAtUtc")
+INSERT INTO candidate_disc_results (id, candidate_id, dominance, influence, steadiness, conscientiousness, primary_style, completed_at_utc)
 VALUES (
     '55555555-5555-5555-5555-444444444444',
     '55555555-5555-5555-5555-111111111111',
@@ -820,7 +820,7 @@ VALUES (
     NOW() - INTERVAL '6 hours'
 );
 
-INSERT INTO candidate_disc_interpretations ("Id", "CandidateId", "DiscResultId", "InterpretationJson", "Status", "ProviderName", "ModelName", "PromptVersion", "CreatedAtUtc")
+INSERT INTO candidate_disc_interpretations (id, candidate_id, disc_result_id, interpretation_json, status, provider_name, model_name, prompt_version, created_at_utc)
 VALUES (
     '55555555-5555-5555-5555-555555555555',
     '55555555-5555-5555-5555-111111111111',
@@ -850,7 +850,7 @@ VALUES (
     NOW() - INTERVAL '6 hours'
 );
 
-INSERT INTO candidate_interview_reports ("Id", "CandidateId", "CvAnalysisId", "DiscInterpretationId", "ReportContentJson", "FileUrl", "Status", "Version", "ProviderName", "ModelName", "PromptVersion", "GeneratedAtUtc", "CreatedAtUtc")
+INSERT INTO candidate_interview_reports (id, candidate_id, cv_analysis_id, disc_interpretation_id, report_content_json, file_url, status, version, provider_name, model_name, prompt_version, generated_at_utc, created_at_utc)
 VALUES (
     '55555555-5555-5555-5555-666666666666',
     '55555555-5555-5555-5555-111111111111',
@@ -927,7 +927,7 @@ VALUES (
 -- =========================================================================================
 -- CANDIDATO 6: David Rangel Soto - QA Automation Engineer (SDET)
 -- =========================================================================================
-INSERT INTO candidates ("Id", "FirstName", "LastName", email, "PhoneNumber", "CreatedAtUtc")
+INSERT INTO candidates (id, first_name, last_name, email, phone_number, created_at_utc)
 VALUES (
     '66666666-6666-6666-6666-111111111111',
     'David',
@@ -937,7 +937,7 @@ VALUES (
     NOW() - INTERVAL '2 hours'
 );
 
-INSERT INTO cv_documents ("Id", "CandidateId", "FileName", "StoragePath", "FileSizeBytes", "ContentType", "UploadedAtUtc")
+INSERT INTO cv_documents (id, candidate_id, file_name, storage_path, file_size_bytes, content_type, uploaded_at_utc)
 VALUES (
     '66666666-6666-6666-6666-222222222222',
     '66666666-6666-6666-6666-111111111111',
@@ -948,7 +948,7 @@ VALUES (
     NOW() - INTERVAL '2 hours'
 );
 
-INSERT INTO candidate_cv_analyses ("Id", "CandidateId", "DocumentId", "AnalysisJson", "Status", "ProviderName", "ModelName", "PromptVersion", "CreatedAtUtc")
+INSERT INTO candidate_cv_analyses (id, candidate_id, document_id, analysis_json, status, provider_name, model_name, prompt_version, created_at_utc)
 VALUES (
     '66666666-6666-6666-6666-333333333333',
     '66666666-6666-6666-6666-111111111111',
@@ -992,7 +992,7 @@ VALUES (
     NOW() - INTERVAL '2 hours'
 );
 
-INSERT INTO candidate_disc_results ("Id", "CandidateId", dominance, influence, steadiness, conscientiousness, primary_style, "CompletedAtUtc")
+INSERT INTO candidate_disc_results (id, candidate_id, dominance, influence, steadiness, conscientiousness, primary_style, completed_at_utc)
 VALUES (
     '66666666-6666-6666-6666-444444444444',
     '66666666-6666-6666-6666-111111111111',
@@ -1004,7 +1004,7 @@ VALUES (
     NOW() - INTERVAL '2 hours'
 );
 
-INSERT INTO candidate_disc_interpretations ("Id", "CandidateId", "DiscResultId", "InterpretationJson", "Status", "ProviderName", "ModelName", "PromptVersion", "CreatedAtUtc")
+INSERT INTO candidate_disc_interpretations (id, candidate_id, disc_result_id, interpretation_json, status, provider_name, model_name, prompt_version, created_at_utc)
 VALUES (
     '66666666-6666-6666-6666-555555555555',
     '66666666-6666-6666-6666-111111111111',
@@ -1034,7 +1034,7 @@ VALUES (
     NOW() - INTERVAL '2 hours'
 );
 
-INSERT INTO candidate_interview_reports ("Id", "CandidateId", "CvAnalysisId", "DiscInterpretationId", "ReportContentJson", "FileUrl", "Status", "Version", "ProviderName", "ModelName", "PromptVersion", "GeneratedAtUtc", "CreatedAtUtc")
+INSERT INTO candidate_interview_reports (id, candidate_id, cv_analysis_id, disc_interpretation_id, report_content_json, file_url, status, version, provider_name, model_name, prompt_version, generated_at_utc, created_at_utc)
 VALUES (
     '66666666-6666-6666-6666-666666666666',
     '66666666-6666-6666-6666-111111111111',

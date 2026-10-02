@@ -87,6 +87,9 @@ public class DiscRepository : IDiscRepository
 
     public DiscRepository(ApplicationDbContext context) => _context = context;
 
+    public Task<DiscResult?> GetResultByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
+        _context.DiscResults.FirstOrDefaultAsync(d => d.Id == id, cancellationToken);
+
     public Task<DiscResult?> GetResultByCandidateIdAsync(Guid candidateId, CancellationToken cancellationToken = default) =>
         _context.DiscResults
             .OrderByDescending(d => d.CompletedAtUtc)

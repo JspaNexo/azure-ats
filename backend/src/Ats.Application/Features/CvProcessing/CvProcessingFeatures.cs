@@ -45,7 +45,7 @@ public class ProcessCvAnalysisCommandHandler
     {
         // 1. Check if candidate already has a processed CV analysis (Cache / Token Guard)
         var existingAnalysis = await _cvAnalysisRepository.GetByCandidateIdAsync(command.CandidateId, cancellationToken);
-        if (existingAnalysis is not null && existingAnalysis.Status == ProcessingStatus.Processed && !string.IsNullOrEmpty(existingAnalysis.AnalysisJson))
+        if (existingAnalysis is not null && existingAnalysis.DocumentId == command.DocumentId && existingAnalysis.Status == ProcessingStatus.Processed && !string.IsNullOrEmpty(existingAnalysis.AnalysisJson))
         {
             var cachedDto = JsonSerializer.Deserialize<CvAnalysisDto>(existingAnalysis.AnalysisJson);
             if (cachedDto is not null) return Result.Success(cachedDto);
@@ -53,37 +53,20 @@ public class ProcessCvAnalysisCommandHandler
 
         // 2. Idempotency check via ProcessingJob
         var existingJob = await _processingJobRepository.GetByEventIdAsync(command.EventId, cancellationToken);
-        if (existingJob is not null && existingJob.Status == ProcessingStatus.Processed)
-        {
-            if (existingAnalysis is not null && !string.IsNullOrEmpty(existingAnalysis.AnalysisJson))
-            {
-                var cachedDto = JsonSerializer.Deserialize<CvAnalysisDto>(existingAnalysis.AnalysisJson);
-                if (cachedDto is not null) return Result.Success(cachedDto);
-            }
-        }
+        if (existingJob is not null && (existingJob.CandidateId != command.CandidateId || existingJob.ProcessType != ProcessType.CvAnalysis))
+            return Result.Failure<CvAnalysisDto>(Error.Conflict("Event.Mismatch", "El evento pertenece a otro proceso o candidato."));
+
+        var candidate = await _candidateRepository.GetByIdAsync(command.CandidateId, cancellationToken);
+        if (candidate is null)
+            return Result.Failure<CvAnalysisDto>(Error.NotFound("Candidate.NotFound", "Candidato no encontrado."));
+        var document = candidate.Documents.FirstOrDefault(d => d.Id == command.DocumentId);
+        if (document is null)
+            return Result.Failure<CvAnalysisDto>(Error.NotFound("Document.NotFound", "Documento no encontrado."));
 
         var job = existingJob ?? ProcessingJob.Create(command.CandidateId, ProcessType.CvAnalysis, command.EventId, command.CorrelationId);
         if (existingJob is null) await _processingJobRepository.AddAsync(job, cancellationToken);
-
         job.MarkAsProcessing();
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        // 2. Fetch candidate and document
-        var candidate = await _candidateRepository.GetByIdAsync(command.CandidateId, cancellationToken);
-        if (candidate is null)
-        {
-            job.MarkAsFailed("Candidate.NotFound", $"Candidato {command.CandidateId} no encontrado.");
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return Result.Failure<CvAnalysisDto>(Error.NotFound("Candidate.NotFound", "Candidato no encontrado."));
-        }
-
-        var document = candidate.Documents.FirstOrDefault(d => d.Id == command.DocumentId);
-        if (document is null)
-        {
-            job.MarkAsFailed("Document.NotFound", $"Documento {command.DocumentId} no encontrado.");
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return Result.Failure<CvAnalysisDto>(Error.NotFound("Document.NotFound", "Documento no encontrado."));
-        }
 
         // 3. Extract text from PDF
         using var stream = await _storageService.GetFileAsync(document.StoragePath, cancellationToken);
@@ -111,8 +94,8 @@ public class ProcessCvAnalysisCommandHandler
             return Result.Failure<CvAnalysisDto>(analysisResult.Error);
         }
 
-        var cvAnalysis = await _cvAnalysisRepository.GetByCandidateIdAsync(command.CandidateId, cancellationToken)
-            ?? CvAnalysis.CreatePending(command.CandidateId, command.DocumentId, "GoogleGemini", "gemini-1.5-flash", "v1.0");
+        var cvAnalysis = existingAnalysis?.DocumentId == command.DocumentId ? existingAnalysis
+            : CvAnalysis.CreatePending(command.CandidateId, command.DocumentId, "GoogleGemini", "configured-model", "v1.0");
 
         string jsonContent = JsonSerializer.Serialize(analysisResult.Value);
         cvAnalysis.MarkAsProcessed(jsonContent);

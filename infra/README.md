@@ -13,19 +13,17 @@ Este directorio almacena recursos y directrices operativas para los servicios co
 | **Identity & Access** | `ats_keycloak` | `8085` | `8080` | Keycloak 26.2 (IAM, OIDC PKCE y tema responsivo) |
 | **Base de Datos** | `ats_postgres` | `5433` | `5432` | PostgreSQL 16 Alpine con esquemas relacionales e indices |
 | **Observabilidad** | `ats_seq` | `8080` / `5341` | `80` / `5341` | Panel de consulta e ingesta de telemetria Serilog |
-| **Automatizacion** | `ats_n8n` | `5678` | `5678` | Orquestador de flujos asincronos y batch |
 
 ---
 
 ## 2. Redes y Volumenes de Persistencia
 
 ### 2.1 Red Aislada (`ats_network`)
-Todos los contenedores se comunican a traves de una red tipo bridge propia (`ats_network`), permitiendo la resolucion de nombres de servicio interna (e.g. `postgres:5432`, `backend:8080`, `keycloak:8080`, `seq:5341`, `n8n:5678`) sin exponer puertos innecesarios al trafico exterior del host.
+Todos los contenedores se comunican a traves de una red tipo bridge propia (`ats_network`), permitiendo la resolucion de nombres de servicio interna (e.g. `postgres:5432`, `backend:8080`, `keycloak:8080`, `seq:5341`) sin exponer puertos innecesarios al trafico exterior del host.
 
 ### 2.2 Volumenes y Montajes
 - `postgres_data`: Persistencia de datos transaccionales de PostgreSQL.
 - `seq_data`: Persistencia de eventos y consultas de telemetria de Seq.
-- `n8n_data`: Configuracion, credenciales y estado de ejecucion de flujos n8n.
 - `backend_storage`: Directorio de almacenamiento fisico de archivos PDF procesados.
 - `./keycloak/realm-export.json`: Montaje de solo lectura (`:ro`) para el aprovisionamiento automatico del realm `ats-realm`.
 - `./keycloak/themes`: Montaje de solo lectura (`:ro`) para el tema visual corporativo responsivo `talentiq`.
@@ -71,7 +69,7 @@ docker compose build backend frontend && docker compose up -d backend frontend
 docker compose ps
 
 # Visualizar logs en tiempo real de un servicio
-docker compose logs -f [backend|frontend|keycloak|postgres|seq|n8n]
+docker compose logs -f [backend|frontend|keycloak|postgres|seq]
 
 # Detener los servicios conservando todos los volumenes de datos
 docker compose down

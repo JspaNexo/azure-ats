@@ -62,7 +62,7 @@ frontend/
 │   ├── context/
 │   │   └── AuthContext.tsx                # Contexto de sesion Keycloak (PKCE, tokens y roles)
 │   ├── services/
-│   │   ├── api.ts                         # Cliente HTTP tipado con Axios e inyeccion de token Bearer
+│   │   ├── api.ts                         # Cliente HTTP tipado con fetch e inyeccion de token Bearer
 │   │   └── keycloak.ts                    # Configuracion del cliente OIDC Keycloak JS
 │   ├── types/
 │   │   └── index.ts                       # Modelos TypeScript (Candidate, JobPosition, etc.)

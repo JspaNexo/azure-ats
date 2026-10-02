@@ -1,7 +1,6 @@
 using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
-using Ats.Domain.Common;
 
 namespace Ats.Api.Middlewares;
 
@@ -24,9 +23,14 @@ public class GlobalExceptionHandlerMiddleware
         {
             await _next(context);
         }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            // The client disconnected; no response body can be delivered.
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Excepción no controlada: {Message}", ex.Message);
+            if (context.Response.HasStarted) throw;
             await HandleExceptionAsync(context, ex);
         }
     }

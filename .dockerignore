@@ -6,6 +6,7 @@
 **/obj/
 **/node_modules/
 **/dist/
+ci-results/
 .env
 .env.local
 backend/src/Ats.Api/Storage/*

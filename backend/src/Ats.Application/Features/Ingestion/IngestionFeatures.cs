@@ -1,4 +1,5 @@
 using FluentValidation;
+using Ats.Application.Common;
 using Ats.Application.Common.Interfaces;
 using Ats.Application.DTOs;
 using Ats.Application.Features.Candidates;
@@ -34,12 +35,16 @@ public class IngestCandidateCommandValidator : AbstractValidator<IngestCandidate
 
     public IngestCandidateCommandValidator()
     {
-        RuleFor(x => x.FirstName).NotEmpty().WithMessage("El nombre es obligatorio.");
-        RuleFor(x => x.LastName).NotEmpty().WithMessage("El apellido es obligatorio.");
-        RuleFor(x => x.Email).NotEmpty().EmailAddress().WithMessage("Correo electrónico no válido.");
+        RuleFor(x => x.FirstName).NotEmpty().MaximumLength(100).WithMessage("El nombre es obligatorio y admite hasta 100 caracteres.");
+        RuleFor(x => x.LastName).NotEmpty().MaximumLength(100).WithMessage("El apellido es obligatorio y admite hasta 100 caracteres.");
+        RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(255).WithMessage("Correo electrónico no válido.");
+        RuleFor(x => x.PhoneNumber).MaximumLength(30);
+        RuleFor(x => x.TargetRole).MaximumLength(150);
+        RuleFor(x => x.CvStream).NotNull().Must(stream => stream is not null && stream.CanRead && stream.CanSeek);
 
         RuleFor(x => x.FileName)
             .NotEmpty().WithMessage("El nombre del archivo CV es obligatorio.")
+            .MaximumLength(255)
             .Must(HaveValidExtension).WithMessage("Solo se admiten archivos PDF.");
 
         RuleFor(x => x.FileSizeBytes)
@@ -70,6 +75,7 @@ public class IngestCandidateCommandHandler
     private readonly GetCandidateByIdQueryHandler _getCandidateByIdHandler;
     private readonly ICandidateRepository _candidateRepository;
     private readonly IJobPositionRepository _jobPositionRepository;
+    private readonly IValidator<IngestCandidateCommand> _validator;
 
     public IngestCandidateCommandHandler(
         RegisterCandidateCommandHandler registerHandler,
@@ -80,7 +86,8 @@ public class IngestCandidateCommandHandler
         GenerateInterviewReportCommandHandler generateReportHandler,
         GetCandidateByIdQueryHandler getCandidateByIdHandler,
         ICandidateRepository candidateRepository,
-        IJobPositionRepository jobPositionRepository)
+        IJobPositionRepository jobPositionRepository,
+        IValidator<IngestCandidateCommand> validator)
     {
         _registerHandler = registerHandler;
         _uploadCvHandler = uploadCvHandler;
@@ -91,20 +98,27 @@ public class IngestCandidateCommandHandler
         _getCandidateByIdHandler = getCandidateByIdHandler;
         _candidateRepository = candidateRepository;
         _jobPositionRepository = jobPositionRepository;
+        _validator = validator;
     }
 
     public async Task<Result<CandidateDto>> HandleAsync(IngestCandidateCommand command, CancellationToken cancellationToken = default)
     {
+        var validationError = await _validator.ValidateCommandAsync(command, cancellationToken);
+        if (validationError is not null) return Result.Failure<CandidateDto>(validationError);
+        if (!await PdfFileValidation.HasValidHeaderAsync(command.CvStream, cancellationToken))
+            return Result.Failure<CandidateDto>(Error.Validation("File.InvalidFormat", "El archivo no contiene una cabecera PDF válida."));
+
         var correlationId = Guid.NewGuid();
 
         string? resolvedTargetRole = command.TargetRole;
         if (command.JobPositionId.HasValue)
         {
             var position = await _jobPositionRepository.GetByIdAsync(command.JobPositionId.Value, cancellationToken);
-            if (position != null)
-            {
-                resolvedTargetRole ??= position.Title;
-            }
+            if (position is null)
+                return Result.Failure<CandidateDto>(Error.NotFound("JobPosition.NotFound", "Vacante no encontrada."));
+            if (position.Status != "Active")
+                return Result.Failure<CandidateDto>(Error.Validation("JobPosition.Inactive", "La vacante no está activa."));
+            resolvedTargetRole = position.Title;
         }
 
         // 1. Register candidate or retrieve if already exists

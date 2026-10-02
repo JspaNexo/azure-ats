@@ -25,6 +25,7 @@ publish/
 *.DotSettings.user
 .vs/
 TestResults/
+ci-results/
 _ReSharper*/
 
 # 3. Node / Frontend
@@ -40,6 +41,8 @@ dist-ssr/
 
 # 4. Storage & Runtime Uploaded Files
 Storage/
+!backend/src/Ats.Infrastructure/Services/Storage/
+!backend/src/Ats.Infrastructure/Services/Storage/*.cs
 backend/Storage/
 /Storage/
 *.pdf
@@ -48,7 +51,6 @@ backend/Storage/
 # 5. Docker Volumes & Persistent Local State
 postgres_data/
 seq_data/
-n8n_data/
 .docker/
 
 # 6. IDEs & Operating System

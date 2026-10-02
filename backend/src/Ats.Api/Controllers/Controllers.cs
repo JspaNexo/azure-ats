@@ -43,7 +43,7 @@ public abstract class ApiControllerBase : ControllerBase
     }
 }
 
-[Authorize]
+[Authorize(Policy = "RequireRecruiterOrAdmin")]
 [Route("api/v1/candidates")]
 public class CandidatesController : ApiControllerBase
 {
@@ -146,7 +146,7 @@ public class UploadCvFormRequest
     public IFormFile File { get; set; } = default!;
 }
 
-[Authorize]
+[Authorize(Policy = "RequireRecruiterOrAdmin")]
 [Route("api/v1/documents")]
 public class DocumentsController : ApiControllerBase
 {
@@ -183,7 +183,7 @@ public class DocumentsController : ApiControllerBase
     }
 }
 
-[Authorize]
+[Authorize(Policy = "RequireRecruiterOrAdmin")]
 [Route("api/v1/disc")]
 public class DiscController : ApiControllerBase
 {
@@ -213,7 +213,7 @@ public class DiscController : ApiControllerBase
     }
 }
 
-[Authorize]
+[Authorize(Policy = "RequireRecruiterOrAdmin")]
 [Route("api/v1/reports")]
 public class ReportsController : ApiControllerBase
 {
@@ -260,51 +260,13 @@ public class ReportsController : ApiControllerBase
     [HttpGet("download/{candidateId:guid}")]
     public async Task<IActionResult> DownloadReportPdf(
         [FromRoute] Guid candidateId,
-        [FromServices] Ats.Application.Common.Interfaces.IDocumentStorageService storageService,
-        [FromServices] Ats.Application.Common.Interfaces.IInterviewReportRepository reportRepository,
-        [FromServices] Ats.Application.Common.Interfaces.IReportDocumentRenderer documentRenderer,
+        [FromServices] DownloadInterviewReportQueryHandler handler,
         CancellationToken cancellationToken)
     {
-        var report = await reportRepository.GetByCandidateIdAsync(candidateId, cancellationToken);
-        if (report is null)
-        {
-            return NotFound(new ProblemDetails
-            {
-                Title = "Report.NotFound",
-                Detail = "No se ha generado un informe preentrevista para este candidato.",
-                Status = StatusCodes.Status404NotFound
-            });
-        }
-
-        if (!string.IsNullOrWhiteSpace(report.FileUrl))
-        {
-            var existingStream = await storageService.GetFileAsync(report.FileUrl, cancellationToken);
-            if (existingStream is not null)
-            {
-                return File(existingStream, "application/pdf", $"informe_preentrevista_{candidateId}.pdf");
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(report.ReportContentJson))
-        {
-            var dto = System.Text.Json.JsonSerializer.Deserialize<InterviewReportDto>(report.ReportContentJson);
-            if (dto is not null)
-            {
-                var renderResult = await documentRenderer.RenderReportPdfAsync(dto, cancellationToken);
-                if (renderResult.IsSuccess && renderResult.Value.Length > 0)
-                {
-                    var ms = new MemoryStream(renderResult.Value);
-                    return File(ms, "application/pdf", $"informe_preentrevista_{candidateId}.pdf");
-                }
-            }
-        }
-
-        return NotFound(new ProblemDetails
-        {
-            Title = "Report.NotReady",
-            Detail = "El contenido del informe aún no está disponible para generar el PDF.",
-            Status = StatusCodes.Status404NotFound
-        });
+        var result = await handler.HandleAsync(new DownloadInterviewReportQuery(candidateId), cancellationToken);
+        return result.IsSuccess
+            ? File(result.Value.Content, "application/pdf", result.Value.FileName)
+            : HandleResult(result);
     }
 }
 

@@ -23,9 +23,10 @@ export const StatsCards = ({ candidates }: StatsCardsProps) => {
   );
   const myEvaluated = myCandidates.filter((c) => c.evaluatorDecision && c.evaluatorDecision !== 'Pending').length;
   const myPending = myCandidates.length - myEvaluated;
-  const myAvgMatch = myCandidates.length > 0
-    ? Math.round(myCandidates.reduce((sum, c) => sum + (c.matchScore || 90), 0) / myCandidates.length)
-    : 0;
+  const scoredCandidates = myCandidates.filter((c) => c.matchScore != null);
+  const myAvgMatch = scoredCandidates.length > 0
+    ? Math.round(scoredCandidates.reduce((sum, c) => sum + (c.matchScore ?? 0), 0) / scoredCandidates.length)
+    : null;
 
   const adminStats = [
     {
@@ -82,7 +83,7 @@ export const StatsCards = ({ candidates }: StatsCardsProps) => {
     },
     {
       name: 'Ajuste Técnico Promedio',
-      value: myCandidates.length > 0 ? `${myAvgMatch}%` : 'N/A',
+      value: myAvgMatch == null ? 'Sin evaluar' : `${myAvgMatch}%`,
       subtext: 'Promedio de tu grupo',
       icon: Award,
       highlight: false,

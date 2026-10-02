@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 using Ats.Domain.Entities;
 
 namespace Ats.Infrastructure.Persistence;
@@ -20,6 +21,25 @@ public class ApplicationDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
+
+        // Match the SQL initialization scripts, retaining their legacy evaluator columns.
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (entityType.IsOwned() && property.IsPrimaryKey())
+                {
+                    property.SetColumnName("id");
+                    continue;
+                }
+                if (entityType.ClrType == typeof(Candidate) &&
+                    property.Name is nameof(Candidate.EvaluatorDecision) or nameof(Candidate.EvaluatorNotes) or nameof(Candidate.EvaluatedAtUtc))
+                    continue;
+
+                var columnName = property.GetColumnName();
+                property.SetColumnName(Regex.Replace(columnName, "([a-z0-9])([A-Z])", "$1_$2").ToLowerInvariant());
+            }
+        }
     }
 }
 

@@ -1,4 +1,5 @@
 using FluentValidation;
+using Ats.Application.Common;
 using Ats.Application.Common.Interfaces;
 using Ats.Application.DTOs;
 using Ats.Domain.Common;
@@ -15,7 +16,7 @@ public record UploadCvCommand(
 public class UploadCvCommandValidator : AbstractValidator<UploadCvCommand>
 {
     private static readonly string[] AllowedExtensions = [".pdf"];
-    private const long MaxFileSizeBytes = 10 * 1024 * 1024; // 10 MB
+    private const long MaxFileSizeBytes = 15 * 1024 * 1024;
 
     public UploadCvCommandValidator()
     {
@@ -24,11 +25,15 @@ public class UploadCvCommandValidator : AbstractValidator<UploadCvCommand>
 
         RuleFor(x => x.FileName)
             .NotEmpty().WithMessage("El nombre del archivo es obligatorio.")
+            .MaximumLength(255)
             .Must(HaveValidExtension).WithMessage("Solo se permiten archivos en formato PDF.");
 
         RuleFor(x => x.FileSizeBytes)
             .GreaterThan(0).WithMessage("El archivo no puede estar vacío.")
-            .LessThanOrEqualTo(MaxFileSizeBytes).WithMessage("El archivo no puede exceder los 10 MB.");
+            .LessThanOrEqualTo(MaxFileSizeBytes).WithMessage("El archivo no puede exceder los 15 MB.");
+
+        RuleFor(x => x.FileStream).NotNull().Must(stream => stream is not null && stream.CanRead && stream.CanSeek)
+            .WithMessage("El archivo debe proporcionar un flujo legible y posicionable.");
     }
 
     private bool HaveValidExtension(string fileName)
@@ -43,19 +48,28 @@ public class UploadCvCommandHandler
     private readonly ICandidateRepository _candidateRepository;
     private readonly IDocumentStorageService _storageService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IValidator<UploadCvCommand> _validator;
 
     public UploadCvCommandHandler(
         ICandidateRepository candidateRepository,
         IDocumentStorageService storageService,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IValidator<UploadCvCommand> validator)
     {
         _candidateRepository = candidateRepository;
         _storageService = storageService;
         _unitOfWork = unitOfWork;
+        _validator = validator;
     }
 
     public async Task<Result<UploadCvResponse>> HandleAsync(UploadCvCommand command, CancellationToken cancellationToken = default)
     {
+        var validationError = await _validator.ValidateCommandAsync(command, cancellationToken);
+        if (validationError is not null) return Result.Failure<UploadCvResponse>(validationError);
+
+        if (!await PdfFileValidation.HasValidHeaderAsync(command.FileStream, cancellationToken))
+            return Result.Failure<UploadCvResponse>(Error.Validation("File.InvalidFormat", "El archivo no contiene una cabecera PDF válida."));
+
         var candidate = await _candidateRepository.GetByIdAsync(command.CandidateId, cancellationToken);
         if (candidate is null)
         {

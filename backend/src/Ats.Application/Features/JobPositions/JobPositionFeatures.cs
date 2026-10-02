@@ -1,4 +1,5 @@
 using FluentValidation;
+using Ats.Application.Common;
 using Ats.Application.Common.Interfaces;
 using Ats.Domain.Common;
 using Ats.Domain.Entities;
@@ -31,6 +32,7 @@ public class CreateJobPositionCommandValidator : AbstractValidator<CreateJobPosi
     {
         RuleFor(x => x.Title).NotEmpty().WithMessage("El título de la vacante es obligatorio.").MaximumLength(150);
         RuleFor(x => x.Department).NotEmpty().WithMessage("El departamento es obligatorio.").MaximumLength(100);
+        RuleFor(x => x.Seniority).MaximumLength(50);
         RuleFor(x => x.MinExperienceYears).GreaterThanOrEqualTo(0).WithMessage("Los años mínimos de experiencia no pueden ser negativos.");
     }
 }
@@ -39,15 +41,21 @@ public class CreateJobPositionCommandHandler
 {
     private readonly IJobPositionRepository _jobPositionRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IValidator<CreateJobPositionCommand> _validator;
 
-    public CreateJobPositionCommandHandler(IJobPositionRepository jobPositionRepository, IUnitOfWork unitOfWork)
+    public CreateJobPositionCommandHandler(IJobPositionRepository jobPositionRepository, IUnitOfWork unitOfWork,
+        IValidator<CreateJobPositionCommand> validator)
     {
         _jobPositionRepository = jobPositionRepository;
         _unitOfWork = unitOfWork;
+        _validator = validator;
     }
 
     public async Task<Result<JobPositionDto>> HandleAsync(CreateJobPositionCommand command, CancellationToken cancellationToken = default)
     {
+        var validationError = await _validator.ValidateCommandAsync(command, cancellationToken);
+        if (validationError is not null) return Result.Failure<JobPositionDto>(validationError);
+
         var positionResult = JobPosition.Create(
             command.Title,
             command.Department,
@@ -107,7 +115,8 @@ public class GetJobPositionsQueryHandler
             p.Requirements,
             p.Status,
             p.CreatedAtUtc,
-            CandidateCount: candidates.Count(c => c.JobPositionId == p.Id || string.Equals(c.TargetRole, p.Title, StringComparison.OrdinalIgnoreCase))
+            CandidateCount: candidates.Count(c => c.JobPositionId == p.Id ||
+                (c.JobPositionId is null && string.Equals(c.TargetRole, p.Title, StringComparison.OrdinalIgnoreCase)))
         )).ToList();
 
         return Result.Success<IReadOnlyList<JobPositionDto>>(dtos);
@@ -135,7 +144,8 @@ public class UpdateJobPositionStatusCommandHandler
             return Result.Failure<JobPositionDto>(Error.NotFound("JobPosition.NotFound", "Vacante no encontrada."));
         }
 
-        position.UpdateStatus(command.Status);
+        var statusResult = position.UpdateStatus(command.Status);
+        if (statusResult.IsFailure) return Result.Failure<JobPositionDto>(statusResult.Error);
         _jobPositionRepository.Update(position);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 

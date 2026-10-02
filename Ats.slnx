@@ -7,6 +7,7 @@
     <Project Path="backend/src/Ats.Infrastructure/Ats.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="backend/tests/Ats.Tests/Ats.Tests.csproj" />
     <Project Path="tests/Ats.Application.UnitTests/Ats.Application.UnitTests.csproj" />
     <Project Path="tests/Ats.ArchitectureTests/Ats.ArchitectureTests.csproj" />
     <Project Path="tests/Ats.Domain.UnitTests/Ats.Domain.UnitTests.csproj" />

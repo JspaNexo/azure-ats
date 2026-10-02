@@ -71,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (authenticated && keycloak.tokenParsed) {
           setIsAuthenticated(true);
           const parsedToken = keycloak.tokenParsed;
-          const roles: string[] = (parsedToken?.realm_access as any)?.roles || [];
+          const roles = parsedToken.realm_access?.roles ?? [];
           const hasAdmin = roles.includes('ats_admin');
           const hasRecruiter = roles.includes('ats_recruiter');
 
@@ -89,9 +89,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           const userProfile: UserProfile = {
             id: parsedToken?.sub || '',
-            username: (parsedToken as any)?.preferred_username || '',
-            fullName: (parsedToken as any)?.name || (parsedToken as any)?.preferred_username || 'Usuario ATS',
-            email: (parsedToken as any)?.email || '',
+            username: parsedToken.preferred_username || '',
+            fullName: parsedToken.name || parsedToken.preferred_username || 'Usuario ATS',
+            email: parsedToken.email || '',
             role,
           };
 
@@ -104,15 +104,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Redirect to Keycloak login if not authenticated
           keycloak.login();
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error al inicializar sesión en Keycloak:', error);
         if (isMounted) {
           setIsAuthenticated(false);
           setUser(null);
           setLoading(false);
           setAuthError(
-            error?.message ||
-              'No se pudo conectar con el servidor de autenticación Keycloak. Verifique que el servicio se encuentre activo.'
+            error instanceof Error ? error.message :
+              'No se pudo conectar con el servidor de autenticación. Verifique que el servicio se encuentre activo.'
           );
         }
       }

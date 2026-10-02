@@ -120,12 +120,10 @@ export const EvaluatorReviewModal = ({
   const disc = candidate.discInterpretation;
   const report = candidate.report;
 
-  // Extract or fallback DISC scores
-  const discPrimary = candidate.primaryDiscStyle || disc?.primaryStyle || 'D/C';
-  const dominance = discPrimary.includes('D') ? 88 : 45;
-  const influence = discPrimary.includes('I') ? 78 : 55;
-  const steadiness = discPrimary.includes('S') ? 75 : 42;
-  const conscientiousness = discPrimary.includes('C') ? 85 : 50;
+  const dominance = candidate.discScores?.dominance;
+  const influence = candidate.discScores?.influence;
+  const steadiness = candidate.discScores?.steadiness;
+  const conscientiousness = candidate.discScores?.conscientiousness;
 
   const handleDownloadPdf = async () => {
     setIsDownloading(true);
@@ -382,7 +380,7 @@ export const EvaluatorReviewModal = ({
                 <div className="flex items-center space-x-2 flex-shrink-0 self-start md:self-auto">
                   <span className="text-xs sm:text-sm text-slate-500">Compatibilidad:</span>
                   <span className="px-3 py-1 bg-emerald-50 text-emerald-800 text-xs sm:text-sm font-bold rounded-lg border border-emerald-200">
-                    {candidate.matchScore}% con {candidate.targetRole}
+                    {candidate.matchScore == null ? 'Ajuste técnico pendiente de evaluación' : `${candidate.matchScore}% con ${candidate.targetRole}`}
                   </span>
                 </div>
               </div>
@@ -525,13 +523,13 @@ export const EvaluatorReviewModal = ({
                   </div>
 
                   <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200">
-                    <RadarChart
-                      dominance={dominance}
-                      influence={influence}
-                      steadiness={steadiness}
-                      conscientiousness={conscientiousness}
+                    {candidate.discScores ? <RadarChart
+                      dominance={candidate.discScores.dominance}
+                      influence={candidate.discScores.influence}
+                      steadiness={candidate.discScores.steadiness}
+                      conscientiousness={candidate.discScores.conscientiousness}
                       size={220}
-                    />
+                    /> : <p className="text-sm text-slate-500">Puntajes DISC no disponibles.</p>}
                     <span className="text-xs text-slate-500 mt-2 font-medium">Matriz Conductual de {candidate.firstName}</span>
                   </div>
                 </div>
@@ -863,7 +861,7 @@ export const EvaluatorReviewModal = ({
                     <div className="text-slate-600 space-y-1.5 pt-1">
                       <p><strong>Candidato:</strong> {candidate.firstName} {candidate.lastName}</p>
                       <p><strong>Posición:</strong> {candidate.targetRole} ({candidate.seniority})</p>
-                      <p><strong>Compatibilidad:</strong> {candidate.matchScore}%</p>
+                      <p><strong>Compatibilidad:</strong> {candidate.matchScore == null ? 'Sin evaluar' : `${candidate.matchScore}%`}</p>
                       <p><strong>Estilo Conductual:</strong> Patrón DISC {candidate.primaryDiscStyle}</p>
                     </div>
                   </div>

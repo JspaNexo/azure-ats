@@ -76,12 +76,15 @@ public sealed class Candidate : AggregateRoot<Guid>
         UpdatedAtUtc = DateTime.UtcNow;
     }
 
-    public void SetEvaluatorDecision(string decision, string? notes)
+    public Result SetEvaluatorDecision(string decision, string? notes)
     {
-        EvaluatorDecision = string.IsNullOrWhiteSpace(decision) ? "Pending" : decision.Trim();
+        if (decision is not ("Pending" or "Approved" or "Waitlisted" or "Rejected"))
+            return Result.Failure(Error.Validation("Candidate.InvalidDecision", "Dictamen no válido."));
+        EvaluatorDecision = decision;
         EvaluatorNotes = notes?.Trim();
         EvaluatedAtUtc = DateTime.UtcNow;
         UpdatedAtUtc = DateTime.UtcNow;
+        return Result.Success();
     }
 
     public void AssignToRecruiter(string? recruiterId, string? recruiterName, string? recruiterEmail)
@@ -424,15 +427,13 @@ public sealed class JobPosition : AggregateRoot<Guid>
             requirements?.Trim()));
     }
 
-    public void UpdateStatus(string status)
+    public Result UpdateStatus(string status)
     {
-        Status = status switch
-        {
-            "Paused" => "Paused",
-            "Closed" => "Closed",
-            _ => "Active"
-        };
+        if (status is not ("Active" or "Paused" or "Closed"))
+            return Result.Failure(Error.Validation("JobPosition.InvalidStatus", "Estado de vacante no válido."));
+        Status = status;
         UpdatedAtUtc = DateTime.UtcNow;
+        return Result.Success();
     }
 
     public void UpdateDetails(string title, string department, string seniority, int minExperienceYears, string? description, string? requirements)

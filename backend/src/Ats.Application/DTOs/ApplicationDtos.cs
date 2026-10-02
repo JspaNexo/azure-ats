@@ -9,12 +9,12 @@ public record CandidateDto(
     string Email,
     string? PhoneNumber,
     DateTime CreatedAtUtc,
-    string TargetRole = "Senior Software Engineer",
-    string Seniority = "Senior",
-    int ExperienceYears = 5,
-    int MatchScore = 92,
-    string PrimaryDiscStyle = "D/C",
-    string Status = "ReportReady",
+    string TargetRole = "Sin vacante asignada",
+    string Seniority = "Sin evaluar",
+    int? ExperienceYears = null,
+    int? MatchScore = null,
+    string PrimaryDiscStyle = "Sin evaluar",
+    string Status = "Registered",
     string EvaluatorDecision = "Pending",
     string? EvaluatorNotes = null,
     DateTime? EvaluatedAtUtc = null,
@@ -25,7 +25,10 @@ public record CandidateDto(
     Guid? JobPositionId = null,
     CvAnalysisDto? CvAnalysis = null,
     DiscInterpretationDto? DiscInterpretation = null,
-    InterviewReportDto? Report = null);
+    InterviewReportDto? Report = null,
+    DiscScoresDto? DiscScores = null);
+
+public record DiscScoresDto(int Dominance, int Influence, int Steadiness, int Conscientiousness);
 
 public record CvAnalysisDto(
     [property: JsonPropertyName("professionalSummary")] string ProfessionalSummary = "",

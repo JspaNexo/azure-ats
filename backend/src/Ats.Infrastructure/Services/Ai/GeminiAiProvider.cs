@@ -14,6 +14,7 @@ public class GeminiOptions
 {
     public const string SectionName = "Gemini";
     public string ApiKey { get; set; } = string.Empty;
+    public bool UseMockData { get; set; }
     public string Model { get; set; } = "gemini-flash-lite-latest";
     public string BaseUrl { get; set; } = "https://generativelanguage.googleapis.com/v1beta";
 }
@@ -255,12 +256,15 @@ public class GeminiAiProvider : ICvAnalyzer, IDiscInterpreter, IInterviewQuestio
 
     private async Task<Result<T>> CallGeminiAsync<T>(string systemInstruction, string userPrompt, CancellationToken cancellationToken) where T : class
     {
-        // If ApiKey is not configured (e.g. initial dev setup), return a mocked high-quality fallback
-        if (string.IsNullOrWhiteSpace(_options.ApiKey))
+        // Simulated responses require an explicit development setting.
+        if (_options.UseMockData)
         {
-            _logger.LogWarning("Gemini API Key no configurada. Generando respuesta simulada para desarrollo.");
+            _logger.LogWarning("Gemini:UseMockData está activo. Generando respuesta simulada para desarrollo.");
             return Result.Success(GenerateMockData<T>());
         }
+
+        if (string.IsNullOrWhiteSpace(_options.ApiKey))
+            return Result.Failure<T>(Error.Failure("Gemini.NotConfigured", "Configure Gemini:ApiKey para ejecutar el análisis con IA."));
 
         var candidateModels = new List<string>();
         if (!string.IsNullOrWhiteSpace(_options.Model))
@@ -452,7 +456,7 @@ public class GeminiAiProvider : ICvAnalyzer, IDiscInterpreter, IInterviewQuestio
                 Certifications: [new CertificationDto("Microsoft Certified: Azure Developer Associate", "Microsoft", 2023)],
                 WorkExperience: [new WorkExperienceDto("Backend Developer", "Tech Solutions", 3.0, ["Diseño de APIs RESTful", "Optimización de consultas"])],
                 PointsToValidate: ["Profundizar en su experiencia práctica con arquitecturas orientadas a eventos."],
-                Warnings: []
+                Warnings: ["Datos simulados para desarrollo. Este resultado no constituye un análisis real del CV."]
             ) as T)!;
         }
 

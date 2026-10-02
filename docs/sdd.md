@@ -113,16 +113,7 @@ El administrador podrá:
 - Ejecutar reintentos.
 - Consultar versiones de informes.
 - Configurar el proveedor y modelo de IA.
-- Supervisar la integración con n8n.
-
-### 5.4 Servicio n8n
-
-El servicio n8n podrá:
-
-- Recibir eventos del backend.
-- Consultar información mediante endpoints internos.
-- Invocar el servicio de IA.
-- Enviar los resultados procesados al backend.
+- Supervisar los resultados de los casos de uso de evaluación.
 
 ---
 
@@ -137,23 +128,17 @@ flowchart LR
     C[Candidato] --> FE[Frontend existente]
     R[Reclutador] --> FE
 
-    FE --> API[ASP.NET Core API]
     FE --> API[ASP.NET Core API - Clean Architecture]
 
     API --> DB[(PostgreSQL)]
     API --> FS[Almacenamiento de archivos]
-    API --> N8N[n8n]
-    API --> N8N[n8n Orquestador]
-
-    N8N --> API
-    N8N --> FS
-    N8N --> AI[Servicio de IA]
+    API --> APP[Casos de uso de Application]
+    APP --> AI[Servicio de IA]
 
     AI --> GEMINI[Google Gemini]
-    AI -. Proveedor futuro .-> OTHER[Otro proveedor]
     AI -. Proveedor futuro .-> OTHER[OpenAI / Claude / Local]
 
-    N8N --> REPORT[Generador de informe]
+    APP --> REPORT[Generador de informe]
     REPORT --> FS
 
     API --> LOG[Serilog]
@@ -204,25 +189,25 @@ flowchart TD
 
 ## 7. Flujo principal
 
+La web envía el CV y los puntajes DISC a `/api/v1/ingestion/evaluate`. La API espera el resultado del pipeline coordinado por los casos de uso de Application. Las etapas persisten sus resultados y pueden volver a invocarse si falla el procesamiento; no existe una cola con recuperación automática.
+
 ```mermaid
 flowchart TD
     A[Candidato carga su CV] --> B[API registra el documento]
-    B --> C[Webhook de CV hacia n8n]
+    B --> C[Caso de uso de procesamiento de CV]
 
     C --> D[Consultar datos del candidato]
     D --> E[Obtener archivo del CV]
     E --> F[Extraer texto del PDF]
     F --> G[Enviar texto al servicio de IA]
-    G --> H[Validar respuesta JSON]
     G --> H[Validar respuesta JSON con esquema]
     H --> I[Normalizar información]
     I --> J[Guardar análisis del CV]
 
-    K[Candidato completa evaluación DISC] --> L[Plataforma calcula el resultado]
-    L --> M[Webhook DISC hacia n8n]
+    K[Usuario envía puntajes DISC] --> L[API valida y guarda el resultado]
+    L --> M[Caso de uso de interpretación DISC]
     M --> N[Consultar resultado DISC oficial]
     N --> O[Generar síntesis DISC con IA]
-    O --> P[Validar respuesta JSON]
     O --> P[Validar respuesta JSON con esquema]
     P --> Q[Guardar interpretación DISC]
 
@@ -269,7 +254,7 @@ El backend está estructurado en 4 capas concéntricas con regla de dependencia 
 - Registrar el CV.
 - Asociar documentos con candidatos.
 - Registrar la finalización de la evaluación DISC.
-- Exponer endpoints internos para n8n.
+- Exponer endpoints autenticados para la web y las integraciones externas.
 - Mantener los estados del procesamiento.
 - Guardar los resultados definitivos.
 - Validar permisos.
@@ -282,7 +267,7 @@ El backend está estructurado en 4 capas concéntricas con regla de dependencia 
 - **Domain Events**: Eventos inmutables como `CvAnalysisCompletedDomainEvent`, `InterviewReportGeneratedDomainEvent`.
 - **Enums e Invariantes**: Estados del procesamiento y validación de reglas de negocio intrínsecas.
 
-La lógica principal del negocio deberá mantenerse en ASP.NET Core y no exclusivamente en n8n.
+Las reglas de negocio residen en Domain y la coordinación del procesamiento en Application.
 #### 8.2.2 Capa de Aplicación (`Application`)
 - **Casos de Uso (Use Cases)**: Organizados mediante el patrón CQRS (Comandos para mutación, Consultas para lectura).
 - **Puertos / Interfaces Abstraídas**:
@@ -296,7 +281,6 @@ La lógica principal del negocio deberá mantenerse en ASP.NET Core y no exclusi
 - **Validaciones tempranas**: Reglas de validación aplicadas mediante `FluentValidation` en pipeline antes de llegar al dominio.
 - **Pipeline Behaviors**: Cross-cutting concerns automáticos (Logging, Validation, Performance, Transactional Boundaries).
 
-### 8.3 n8n
 #### 8.2.3 Capa de Infraestructura (`Infrastructure`)
 - **Adaptadores de Persistencia**: Implementación de repositorios con Entity Framework Core sobre PostgreSQL, aprovechando soporte nativo para columnas `JSONB`.
 - **Adaptadores de IA**: Implementación de `GeminiAiProvider` implementando los puertos de IA requeridos.
@@ -309,26 +293,17 @@ La lógica principal del negocio deberá mantenerse en ASP.NET Core y no exclusi
 - **Manejo Global de Excepciones**: Middleware centralizado que transforma errores en respuestas estándar RFC 7807 (`ProblemDetails`).
 - **Autenticación y Autorización**: Control de acceso basado en roles (Reclutador, Administrador) y autenticación segura de webhooks.
 
-### 8.3 n8n (Orquestador de flujos de integración)
+### 8.3 Coordinación del pipeline en Application
 
 Responsabilidades:
 
-- Recibir webhooks.
-- Consultar información mediante la API.
-- Obtener el archivo del CV.
-- Extraer el texto del PDF.
-- Invocar al servicio de IA.
-- Validar las respuestas.
-- Coordinar los pasos del procesamiento.
-- Ejecutar reintentos controlados.
-- Informar la finalización del proceso.
-- Recibir webhooks de eventos emitidos por la API.
-- Coordinar la secuencia de llamadas asíncronas entre la API, almacenamiento y servicios de IA.
-- Ejecutar reintentos automáticos a nivel de workflow ante fallos transitorios de red.
-- Enviar resultados normalizados a la API.
+- Validar la solicitud y registrar al candidato, su CV y los puntajes DISC.
+- Ejecutar los casos de uso de análisis de CV e interpretación DISC.
+- Generar y guardar el informe consolidado y su PDF.
+- Consultar persistencia, almacenamiento y servicios de IA mediante puertos.
+- Conservar los resultados de cada etapa para permitir reintentos explícitos.
 
-n8n funcionará como orquestador y no como fuente principal de datos.
-*Nota arquitectónica:* n8n actúa como orquestador de integración externa; las reglas de negocio e integridad de datos residen en la capa de aplicación y dominio de .NET.
+La ingesta ejecuta estas etapas dentro de la solicitud HTTP. La coordinación depende de los casos de uso y sus interfaces, mientras Infrastructure implementa el acceso a PostgreSQL, archivos y Gemini.
 
 ### 8.4 Servicio de IA
 ### 8.4 Servicio de IA (Google Gemini inicial)
@@ -511,112 +486,34 @@ El servicio de IA no deberá:
 
 ---
 
-## 10. Automatizaciones con n8n
-## 11. Automatizaciones con n8n
+## 11. Pipeline de evaluación
 
-### 10.1 Workflow de procesamiento del CV
-### 11.1 Workflow de procesamiento del CV
+La solicitud autenticada a `/api/v1/ingestion/evaluate` invoca el caso de uso de ingesta. Application coordina las etapas directamente, utilizando puertos implementados por Infrastructure.
 
-```text
-Webhook cv-uploaded
-    ↓
-Validar autenticación
-Validar autenticación del webhook
-    ↓
-Consultar datos del documento
-Consultar datos del documento en API
-    ↓
-Descargar CV
-Descargar CV desde almacenamiento
-    ↓
-Validar tipo y tamaño
-Validar tipo de archivo y tamaño
-    ↓
-Extraer texto del PDF
-Extraer texto del PDF (IPdfTextExtractor)
-    ↓
-Validar contenido
-Validar contenido textual mínimo
-    ↓
-Enviar texto al servicio de IA
-Enviar texto al servicio de IA (ICvAnalyzer)
-    ↓
-Validar respuesta JSON
-Validar respuesta JSON contra esquema
-    ↓
-Normalizar skills
-Normalizar skills y calcular evidencias
-    ↓
-Guardar análisis mediante la API
-Guardar análisis mediante la API (.NET)
-    ↓
-Actualizar estado
-Actualizar estado a PROCESSED
-```
+### 11.1 Procesamiento del CV
 
-### 10.2 Workflow de procesamiento DISC
-### 11.2 Workflow de procesamiento DISC
+1. Validar el PDF y registrar el documento.
+2. Leer el archivo mediante el puerto de almacenamiento.
+3. Extraer texto y aplicar las defensas contra prompt injection.
+4. Analizar el contenido con el proveedor de IA.
+5. Validar la respuesta estructurada y guardar el análisis asociado al documento.
 
-```text
-Webhook disc-completed
-    ↓
-Validar autenticación
-Validar autenticación del webhook
-    ↓
-Consultar resultado DISC oficial
-Consultar resultado DISC oficial en API
-    ↓
-Validar valores D, I, S y C
-    ↓
-Enviar resultado al servicio de IA
-Enviar resultado al servicio de IA (IDiscInterpreter)
-    ↓
-Generar síntesis para entrevista
-Generar síntesis narrativa para entrevista
-    ↓
-Validar respuesta JSON
-Validar respuesta JSON contra esquema
-    ↓
-Guardar interpretación mediante la API
-Guardar interpretación mediante la API (.NET)
-    ↓
-Actualizar estado
-Actualizar estado a PROCESSED
-```
+### 11.2 Interpretación DISC
 
-### 10.3 Workflow de generación del informe
-### 11.3 Workflow de generación del informe
+1. Validar y guardar los puntajes D, I, S y C recibidos.
+2. Consultar el resultado DISC del candidato.
+3. Generar la interpretación con el proveedor de IA.
+4. Guardar la interpretación asociada a ese resultado.
 
-```text
-CV procesado
-    +
-DISC procesado
-CV procesado + DISC procesado
-    ↓
-Consultar información consolidada
-Consultar información consolidada en API
-    ↓
-Generar preguntas
-Generar preguntas de entrevista (IInterviewQuestionGenerator)
-    ↓
-Generar contenido estructurado
-Generar contenido estructurado del informe
-    ↓
-Validar secciones y longitud
-Validar secciones, límites y longitud
-    ↓
-Crear documento de dos páginas
-Renderizar documento físico de dos páginas (IReportDocumentRenderer)
-    ↓
-Guardar documento
-Guardar documento en almacenamiento seguro
-    ↓
-Registrar versión
-Registrar versión y metadata en PostgreSQL
-    ↓
-Actualizar estado
-Actualizar estado a GENERATED
-```
+### 11.3 Generación del informe
+
+1. Comprobar que existan el análisis del CV y la interpretación DISC.
+2. Consolidar los resultados y generar preguntas de entrevista.
+3. Crear el contenido estructurado del informe.
+4. Renderizar el PDF y guardarlo en almacenamiento.
+5. Registrar el informe y su versión; permitir su consulta y descarga autenticadas.
+
+Las etapas guardan datos entre llamadas. Una falla puede dejar resultados parciales para un reintento explícito; el pipeline completo no es una transacción atómica ni dispone de una cola con recuperación automática. Los endpoints de webhooks autenticados permiten invocar etapas individuales desde integraciones externas.
 
 ---
 
@@ -1215,13 +1112,11 @@ Las llamadas salientes hacia Google Gemini, almacenamiento de archivos y servici
 - El acceso a los informes estará limitado a usuarios autorizados.
 - Los CV se almacenarán de forma privada.
 - Las credenciales de Gemini se almacenarán como secretos.
-- n8n utilizará una cuenta de servicio para comunicarse con la API.
 - Los webhooks deberán estar autenticados.
 - El acceso a los informes estará limitado a usuarios autenticados con rol de reclutador o administrador.
 - Los CV se almacenarán en buckets privados con acceso restringido.
 - Las credenciales de Gemini se almacenarán en el almacén de secretos.
-- n8n se autenticará con la API mediante tokens JWT de cuenta de servicio.
-- Los webhooks estarán firmados con HMAC o protegidos mediante tokens Bearer.
+- Las integraciones externas se autenticarán mediante secreto compartido o tokens Bearer con un rol autorizado.
 - No se registrará el contenido completo del CV en logs.
 - No se registrarán respuestas completas de DISC en logs operativos.
 - No se registrarán tokens, contraseñas o API keys.
@@ -1291,11 +1186,10 @@ No deberá contener:
 
 ### Rendimiento
 
-- La carga del CV no deberá esperar la respuesta de la IA.
-- El procesamiento será asíncrono.
+- La ingesta espera el resultado del procesamiento de IA dentro de la solicitud HTTP.
 - El informe deberá generarse en un tiempo objetivo menor a cinco minutos.
 - La consulta del informe deberá responder en menos de tres segundos bajo condiciones normales.
-- La carga del CV no deberá bloquear al usuario ni esperar la respuesta de la IA (procesamiento asíncrono).
+- La interfaz deberá informar al usuario mientras se ejecuta la evaluación.
 - El informe completo deberá generarse en un tiempo objetivo menor a 3 minutos.
 - La consulta del informe pregenerado responderá en menos de 500 ms bajo condiciones normales.
 
@@ -1303,20 +1197,17 @@ No deberá contener:
 
 - Un fallo del servicio de IA no deberá bloquear la plataforma.
 - Los procesos fallidos deberán poder reintentarse.
-- La información del candidato no deberá perderse si n8n no está disponible.
 - Un fallo temporal del proveedor de IA no bloqueará la plataforma ni causará pérdida de datos del candidato.
-- Los procesos fallidos deberán poder reintentarse automáticamente o de forma manual por el administrador.
+- Los procesos fallidos deberán poder reintentarse de forma explícita por un usuario autorizado.
 
 ### Mantenibilidad
 
 - Los prompts deberán estar versionados.
-- Los workflows de n8n deberán exportarse y guardarse en control de versiones.
 - Los contratos JSON deberán estar documentados.
 - La configuración deberá separarse por ambiente.
 - El proveedor de IA deberá poder reemplazarse.
 - Arquitectura limpia desacoplada que permite reemplazar componentes sin impacto colateral.
 - Prompts versionados en archivos de configuración externa o plantillas tipadas.
-- Workflows de n8n exportables y versionados en Git.
 
 ### Trazabilidad
 ---
@@ -1338,7 +1229,7 @@ Para garantizar alta mantenibilidad, confiabilidad y ausencia de regresiones, el
 
 ```mermaid
 flowchart TD
-    E2E[Pruebas E2E / Workflows n8n]
+    E2E[Pruebas HTTP de integracion]
     Integration[Pruebas de Integración con Testcontainers]
     Contract[Pruebas de Contrato de IA]
     Unit[Pruebas Unitarias de Dominio y Aplicación]
@@ -1368,8 +1259,8 @@ El MVP será aceptado cuando:
 
 - [ ] El candidato pueda cargar un CV en formato PDF.
 - [ ] La API registre el documento.
-- [ ] n8n reciba el evento de carga.
-- [ ] n8n pueda obtener el archivo.
+- [ ] El caso de uso procese el CV registrado.
+- [ ] El adaptador de almacenamiento permita leer el archivo.
 - [ ] El texto del PDF pueda extraerse.
 - [ ] Gemini devuelva información estructurada.
 - [ ] La respuesta JSON sea validada.
@@ -1379,7 +1270,7 @@ El MVP será aceptado cuando:
 - [ ] Se detecte la finalización del DISC.
 - [ ] Se utilice el resultado DISC oficial.
 - [ ] La API registre el documento cumpliendo Clean Architecture.
-- [ ] n8n reciba y autentique el evento de carga.
+- [ ] La API autentique la solicitud y delegue el procesamiento en Application.
 - [ ] El texto del PDF se extraiga mediante `IPdfTextExtractor`.
 - [ ] Gemini devuelva información estructurada validada con JSON Schema.
 - [ ] Las skills incluyan evidencia verificable del CV.
@@ -1418,7 +1309,7 @@ El MVP será aceptado cuando:
 Actividades:
 - Configurar solución .NET en 4 proyectos (`Domain`, `Application`, `Infrastructure`, `API`).
 - Configurar PostgreSQL con EF Core y soporte JSONB.
-- Configurar contenedor de Docker con PostgreSQL y n8n.
+- Configurar los servicios de Docker Compose y PostgreSQL.
 - Definir entidades de Dominio, Value Objects y puertos principales.
 - Configurar Serilog y pipeline de validación con FluentValidation.
 
@@ -1428,7 +1319,7 @@ Actividades:
 - Identificar el ID común del candidato.
 - Diseñar la plantilla del informe.
 - Preparar datos de prueba anonimizados.
-- Configurar PostgreSQL, n8n y Gemini.
+- Configurar PostgreSQL y Gemini.
 
 Entregable:
 > Proyecto base con Clean Architecture configurada y pruebas de arquitectura pasando.
@@ -1443,11 +1334,11 @@ Actividades:
 - Implementar `ICvAnalyzer` con adaptador `GeminiAiProvider`.
 - Diseñar y versionar el prompt de extracción de CV.
 - Implementar validación de esquemas JSON y políticas de resiliencia con Polly.
-- Crear workflow de n8n para orquestar la extracción.
+- Implementar el caso de uso de procesamiento de CV en Application.
 
 - Registrar documentos desde la API.
 - Crear el webhook de CV.
-- Crear el workflow en n8n.
+- Conectar el procesamiento de CV al caso de uso de ingesta.
 - Extraer texto del PDF.
 - Integrar Gemini.
 - Definir el esquema JSON.
@@ -1466,7 +1357,7 @@ Entregable:
 Actividades:
 - Implementar `IDiscInterpreter` con adaptador Gemini.
 - Diseñar y validar el prompt de síntesis DISC orientado a entrevista.
-- Crear webhook y workflow de n8n para procesamiento de DISC.
+- Conectar el caso de uso de interpretación DISC al pipeline de ingesta.
 - Implementar idempotencia transaccional en recepción de eventos.
 
 - Detectar la finalización de DISC.
@@ -1692,19 +1583,18 @@ Entradas
 
 Procesamiento
 ├── ASP.NET Core API
-├── n8n
 ├── Servicio de IA
 │   └── Google Gemini para el MVP
 ├── PostgreSQL
 └── Generador de documentos
-Arquitectura Backend (.NET 8/9 Clean Architecture)
+Arquitectura Backend (.NET 10 Clean Architecture)
 ├── Domain (Entidades, Value Objects, Domain Events, Invariantes)
 ├── Application (Casos de uso CQRS, Puertos, DTOs, FluentValidation, Result<T>)
 ├── Infrastructure (EF Core PostgreSQL JSONB, Gemini Adapter, Polly, Storage)
 └── Presentation / API (REST Endpoints, Middleware RFC 7807 ProblemDetails)
 
 Orquestación & Datos
-├── n8n (Orquestador de workflows asíncronos)
+├── Casos de uso de Application (Coordinación del pipeline de evaluación)
 └── PostgreSQL (Base de datos relacional + JSONB)
 
 Salida
@@ -1729,7 +1619,7 @@ Salida
 ## 32. Conclusión
 
 El MVP aprovechará la carga de CV y la evaluación DISC existentes para generar un informe preentrevista breve, estructurado y útil para el reclutador.
-El diseño presentado para el MVP combina la robustez y mantenibilidad de **Clean Architecture**, la flexibilidad de los principios **SOLID**, la claridad del **Clean Code** y el pragmatismo de un pipeline asíncrono orquestado con n8n e impulsado por IA generativa (Google Gemini).
+El diseño presentado para el MVP combina **Clean Architecture**, los principios **SOLID** y **Clean Code** con un pipeline coordinado por los casos de uso de Application e impulsado por IA generativa (Google Gemini).
 
 Google Gemini se utilizará inicialmente para realizar pruebas, pero el diseño permanecerá independiente del proveedor de IA.
 

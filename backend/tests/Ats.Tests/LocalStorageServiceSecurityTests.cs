@@ -6,25 +6,26 @@ namespace Ats.Tests;
 
 public class LocalStorageServiceSecurityTests : IDisposable
 {
+    private readonly string _fixtureDirectory;
     private readonly string _testDirectory;
+    private readonly string _outsideFile;
     private readonly LocalStorageService _storageService;
 
     public LocalStorageServiceSecurityTests()
     {
-        _testDirectory = Path.Combine(Path.GetTempPath(), $"Ats_Test_{Guid.NewGuid():N}");
+        _fixtureDirectory = Path.GetFullPath(Path.Combine(Path.GetTempPath(), $"Ats_Storage_Tests_{Guid.NewGuid():N}"));
+        _testDirectory = Path.Combine(_fixtureDirectory, "storage");
         Directory.CreateDirectory(_testDirectory);
+        _outsideFile = Path.Combine(_fixtureDirectory, "canary.txt");
+        File.WriteAllText(_outsideFile, "Content outside the allowed storage directory");
         _storageService = new LocalStorageService(_testDirectory);
     }
 
     public void Dispose()
     {
-        if (Directory.Exists(_testDirectory))
+        if (Directory.Exists(_fixtureDirectory))
         {
-            try
-            {
-                Directory.Delete(_testDirectory, true);
-            }
-            catch { }
+            Directory.Delete(_fixtureDirectory, true);
         }
     }
 
@@ -37,7 +38,7 @@ public class LocalStorageServiceSecurityTests : IDisposable
 
         // Act
         string savedName = await _storageService.SaveFileAsync(stream, "cv.pdf", "application/pdf");
-        var retrievedStream = await _storageService.GetFileAsync(savedName);
+        await using var retrievedStream = await _storageService.GetFileAsync(savedName);
 
         // Assert
         Assert.NotNull(retrievedStream);
@@ -47,57 +48,30 @@ public class LocalStorageServiceSecurityTests : IDisposable
     }
 
     [Theory]
-    [InlineData("../../windows/system32/cmd.exe")]
-    [InlineData("..\\..\\windows\\win.ini")]
-    [InlineData("../../../etc/passwd")]
-    [InlineData("subdir/../../../../secret.key")]
-    public async Task PathTraversalWithRelativeParent_ShouldReturnNull(string traversalPath)
+    [InlineData("absolute")]
+    [InlineData("forward-slashes")]
+    [InlineData("backslashes")]
+    public async Task ExistingFileOutsideStorage_CannotBeRead(string pathStyle)
     {
-        // Act
-        var result = await _storageService.GetFileAsync(traversalPath);
+        var path = pathStyle switch
+        {
+            "absolute" => _outsideFile,
+            "forward-slashes" => "../canary.txt",
+            "backslashes" => "..\\canary.txt",
+            _ => throw new ArgumentOutOfRangeException(nameof(pathStyle))
+        };
 
-        // Assert
-        Assert.Null(result);
-    }
+        await using var result = await _storageService.GetFileAsync(path);
 
-    [Theory]
-    [InlineData("C:\\Windows\\System32\\calc.exe")]
-    [InlineData("C:\\Windows\\win.ini")]
-    [InlineData("/etc/shadow")]
-    public async Task AbsolutePathOutsideBaseDirectory_ShouldReturnNull(string absolutePath)
-    {
-        // Act
-        var result = await _storageService.GetFileAsync(absolutePath);
-
-        // Assert
         Assert.Null(result);
     }
 
     [Fact]
-    public async Task DeleteFileAsync_WithTraversalPath_ShouldReturnFalseAndNotDelete()
+    public async Task ExistingFileOutsideStorage_CannotBeDeleted()
     {
-        // Arrange: Create a canary file outside the storage directory
-        string outsideDir = Path.Combine(Path.GetTempPath(), $"Ats_Outside_{Guid.NewGuid():N}");
-        Directory.CreateDirectory(outsideDir);
-        string canaryFile = Path.Combine(outsideDir, "canary.txt");
-        await File.WriteAllTextAsync(canaryFile, "Critical System File");
+        var deleted = await _storageService.DeleteFileAsync("../canary.txt");
 
-        try
-        {
-            // Act: Attempt to delete via path traversal
-            string maliciousPath = Path.Combine("..", Path.GetFileName(outsideDir), "canary.txt");
-            bool deleted = await _storageService.DeleteFileAsync(maliciousPath);
-
-            // Assert
-            Assert.False(deleted);
-            Assert.True(File.Exists(canaryFile));
-        }
-        finally
-        {
-            if (Directory.Exists(outsideDir))
-            {
-                Directory.Delete(outsideDir, true);
-            }
-        }
+        Assert.False(deleted);
+        Assert.True(File.Exists(_outsideFile));
     }
 }

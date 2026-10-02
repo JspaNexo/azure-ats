@@ -20,7 +20,7 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
     try {
       await keycloak.updateToken(30);
     } catch {
-      // Continue with current token
+      throw new ApiError(401, 'La sesión ha expirado. Inicie sesión nuevamente.');
     }
   }
   const headers: Record<string, string> = {};
@@ -86,8 +86,7 @@ export const api = {
     firstName: string;
     lastName: string;
     email: string;
-    phone?: string;
-    targetRole: string;
+    phoneNumber?: string;
   }): Promise<Candidate> {
     const res = await fetchWithAuth(`${API_BASE}/candidates`, {
       method: 'POST',
@@ -183,12 +182,7 @@ export const api = {
   },
 
   // CV Documents
-  async getCvDocument(candidateId: string): Promise<any> {
-    const res = await fetchWithAuth(`${API_BASE}/documents/candidate/${candidateId}`);
-    return handleResponse<any>(res);
-  },
-
-  async uploadCv(candidateId: string, file: File): Promise<any> {
+  async uploadCv(candidateId: string, file: File): Promise<{ documentId: string; candidateId: string; fileName: string; fileSizeBytes: number; status: string }> {
     const formData = new FormData();
     formData.append('candidateId', candidateId);
     formData.append('file', file);
@@ -197,15 +191,10 @@ export const api = {
       method: 'POST',
       body: formData,
     });
-    return handleResponse<any>(res);
+    return handleResponse(res);
   },
 
   // DISC Profiles
-  async getDiscProfile(candidateId: string): Promise<any> {
-    const res = await fetchWithAuth(`${API_BASE}/disc/candidate/${candidateId}`);
-    return handleResponse<any>(res);
-  },
-
   async submitDisc(
     candidateId: string,
     payload: {
@@ -215,7 +204,7 @@ export const api = {
       conscientiousness: number;
       primaryStyle?: string;
     }
-  ): Promise<any> {
+  ): Promise<string> {
     const res = await fetchWithAuth(`${API_BASE}/disc/results`, {
       method: 'POST',
       headers: {
@@ -230,7 +219,7 @@ export const api = {
         primaryStyle: payload.primaryStyle,
       }),
     });
-    return handleResponse<any>(res);
+    return handleResponse<string>(res);
   },
 
   // Reports
@@ -257,38 +246,4 @@ export const api = {
     return res.blob();
   },
 
-  getReportDownloadUrl(candidateId: string): string {
-    return `${API_BASE}/reports/download/${candidateId}`;
-  },
-
-  // Webhooks / AI Simulation triggers
-  async simulateCvAnalysis(candidateId: string, documentId: string): Promise<void> {
-    const eventId = '00000000-0000-0000-0000-000000000001';
-    const correlationId = '00000000-0000-0000-0000-000000000001';
-    const res = await fetchWithAuth(
-      `${API_BASE}/webhooks/process-cv?candidateId=${encodeURIComponent(candidateId)}&documentId=${encodeURIComponent(documentId)}&eventId=${eventId}&correlationId=${correlationId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    return handleResponse<void>(res);
-  },
-
-  async simulateDiscInterpretation(candidateId: string, discResultId: string): Promise<void> {
-    const eventId = '00000000-0000-0000-0000-000000000002';
-    const correlationId = '00000000-0000-0000-0000-000000000002';
-    const res = await fetchWithAuth(
-      `${API_BASE}/webhooks/process-disc?candidateId=${encodeURIComponent(candidateId)}&discResultId=${encodeURIComponent(discResultId)}&eventId=${eventId}&correlationId=${correlationId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    return handleResponse<void>(res);
-  },
 };

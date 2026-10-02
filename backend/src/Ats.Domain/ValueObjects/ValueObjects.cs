@@ -30,7 +30,9 @@ public sealed class CandidateEmail : ValueObject
                 Error.Validation("Email.InvalidFormat", "El formato del correo electrónico no es válido."));
         }
 
-        return Result.Success(new CandidateEmail(trimmedEmail));
+        if (trimmedEmail.Length > 255)
+            return Result.Failure<CandidateEmail>(Error.Validation("Email.TooLong", "El correo admite hasta 255 caracteres."));
+        return Result.Success(new CandidateEmail(trimmedEmail.ToLowerInvariant()));
     }
 
     public override IEnumerable<object> GetAtomicValues()
@@ -68,6 +70,8 @@ public sealed class DiscScores : ValueObject
                 Error.Validation("DiscScores.OutOfRange", "Los valores DISC deben estar en el rango de 0 a 100."));
         }
 
+        if (primaryStyle is not null && !Regex.IsMatch(primaryStyle, @"^[DISC](/[DISC])?$"))
+            return Result.Failure<DiscScores>(Error.Validation("DiscScores.InvalidStyle", "El estilo DISC no es válido."));
         string calculatedStyle = primaryStyle ?? DeterminePrimaryStyle(d, i, s, c);
         return Result.Success(new DiscScores(d, i, s, c, calculatedStyle));
     }

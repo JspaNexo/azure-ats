@@ -1,5 +1,5 @@
 # Stage 1: Build & Publish with .NET 10 SDK
-FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy csproj files for optimized Docker layer caching
@@ -17,7 +17,7 @@ WORKDIR "/src/backend/src/Ats.Api"
 RUN dotnet publish "Ats.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # Stage 2: Runtime Image
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 EXPOSE 8080
 

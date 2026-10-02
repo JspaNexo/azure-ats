@@ -1,127 +1,54 @@
-# Backend ATS TalentIQ - Arquitectura Limpia y Servicios de Negocio
+# Backend TalentIQ ATS
 
-Modulo de servicios de backend para TalentIQ ATS construido sobre **.NET 10** en C# bajo principios de **Clean Architecture**, segregacion de comandos y consultas (**CQRS**) con MediatR, persistencia relacional con **Entity Framework Core** sobre PostgreSQL 16 y servicios avanzados de evaluacion con **Google Gemini AI**.
+API ASP.NET Core 10 con Clean Architecture: Domain contiene entidades e invariantes; Application define casos de uso y puertos; Infrastructure implementa PostgreSQL, almacenamiento, PDF e IA; Api adapta HTTP y compone los servicios. Las pruebas verifican la dirección de dependencias y que los controladores deleguen los casos de uso.
 
----
+## Ejecución local
 
-## 1. Estructura de Proyectos y Capas
+Desde la raíz:
 
-La solucion sigue una regla de dependencia estricta unidireccional: las capas externas dependen de las internas, y el dominio se mantiene 100% puro e independiente.
-
-```text
-backend/
-├── src/
-│   ├── Ats.Domain/                 # Entidades puras, Value Objects, Enums, Eventos de Dominio
-│   │   ├── Common/                 # BaseEntity, AggregateRoot, IDomainEvent
-│   │   ├── Entities/               # Candidate, JobPosition, CvAnalysis, DiscInterpretation, InterviewReport
-│   │   ├── Enums/                  # CandidateStatus, EvaluationStatus, JobPositionStatus
-│   │   └── ValueObjects/           # Email, Scores, Evidence
-│   │
-│   ├── Ats.Application/            # Casos de uso de negocio (CQRS), DTOs, Validadores e Interfaces
-│   │   ├── Common/                 # Interfaces (IRepository, IAiProvider, IPdfTextExtractor, etc.)
-│   │   ├── DTOs/                   # Records inmutables para transferencia de datos
-│   │   └── Features/               # Casos de uso agrupados por agregado:
-│   │       ├── Candidates/         # GetCandidates, GetCandidateById, AssignRecruiter, SubmitDecision
-│   │       ├── JobPositions/       # GetJobPositions, CreateJobPosition, UpdateJobPositionStatus
-│   │       ├── Ingestion/          # IngestAndEvaluateCandidateCommand & Pipeline
-│   │       ├── CvProcessing/       # ProcessCvCommand
-│   │       ├── Disc/               # ProcessDiscCommand
-│   │       └── Reports/            # GenerateReportCommand
-│   │
-│   ├── Ats.Infrastructure/         # Implementacion de adaptadores, persistencia y servicios externos
-│   │   ├── Persistence/            # AtsDbContext, migraciones y repositorios EF Core
-│   │   │   ├── Configurations/     # Mapeo Fluent API con PostgreSQL
-│   │   │   └── Repositories/       # CandidateRepository, JobPositionRepository
-│   │   └── Services/
-│   │       ├── Ai/                 # GeminiAiService con systemInstruction y defensas anti-prompt injection
-│   │       ├── Security/           # CvSecuritySanitizer (deteccion regex y escape de tags XML)
-│   │       ├── Pdf/                # PdfPigTextExtractor (extraccion segura de texto en memoria)
-│   │       ├── Reporting/          # QuestPdfReportGenerator (informe ejecutivo de dos paginas)
-│   │       └── Storage/            # StorageService (gestion de archivos con defensa contra Path Traversal)
-│   │
-│   └── Ats.Api/                    # Capa de presentacion, endpoints REST y middlewares
-│       ├── Controllers/            # CandidatesController, JobPositionsController, IngestionController, WebhooksController
-│       ├── Middlewares/            # GlobalExceptionHandlerMiddleware (ProblemDetails RFC 7807)
-│       └── Program.cs              # Configuracion de DI, autenticacion Keycloak JWT y pipeline HTTP
-│
-├── tests/
-│   └── Ats.Tests/                  # Pruebas automatizadas xUnit (sanitizacion, seguridad y casos de uso)
-│
-└── Dockerfile                      # Compilacion multi-stage (.NET 10 SDK -> ASP.NET Core Runtime)
+```powershell
+docker compose up -d postgres keycloak
+$env:Gemini__ApiKey = 'su-clave'
+dotnet run --project backend/src/Ats.Api/Ats.Api.csproj
 ```
 
----
+La conexión local usa PostgreSQL en 5433 y Keycloak en 8085. Para simular IA durante desarrollo, configure `Gemini__UseMockData=true`. Sin clave y sin simulación explícita, el análisis devuelve `Gemini.NotConfigured`.
 
-## 2. Modelado de Base de Datos y Migraciones
+Los scripts `database/init/00` a `06` inicializan una base vacía. Docker no los vuelve a ejecutar sobre un volumen existente. EF no actualiza automáticamente el esquema desplegado. En Development puede crearse una base vacía con `Database__EnsureCreated=true`, sin datos de demostración.
 
-La base de datos se inicializa y actualiza secuencialmente a traves de los scripts situados en `database/init/`:
+## Contratos HTTP
 
-1. **`01-init-schema.sql`:** Creacion de tablas base (`candidates`, `cv_analyses`, `disc_interpretations`, `interview_reports`, `processing_jobs`).
-2. **`02-seed-realistic-data.sql`:** Insercion de postulantes representativos para pruebas locales.
-3. **`03-add-foreign-keys.sql`:** Definicion de restricciones de integridad referencial y llaves foraneas.
-4. **`04-add-recruiter-assignment.sql`:** Soporte para delegacion de evaluadores (`assigned_recruiter_id`, `assigned_recruiter_name`).
-5. **`05-add-interview-decision.sql`:** Registro del veredicto oficial (`interview_decision`, `interview_notes`, `evaluated_at`).
-6. **`06-create-job-positions.sql`:** Creacion de la tabla `job_positions` y adicion de la llave foranea `job_position_id` en `candidates`.
+Los endpoints requieren `ats_admin` o `ats_recruiter`, salvo las alternativas de integración indicadas.
 
----
+| Método | Ruta | Comportamiento |
+| --- | --- | --- |
+| GET / POST | `/api/v1/candidates` | Listar o registrar; filtro opcional `recruiterId` |
+| GET | `/api/v1/candidates/{id}` | Consultar expediente |
+| PATCH | `/api/v1/candidates/{id}/decision` | Guardar dictamen |
+| PATCH | `/api/v1/candidates/{id}/assign` | Asignar reclutador; solo administrador |
+| GET | `/api/v1/users/recruiters` | Catálogo del prototipo; solo administrador |
+| GET / POST | `/api/v1/positions` | Listar o crear; creación solo administrador, responde 201 |
+| PATCH | `/api/v1/positions/{id}/status` | Cambiar estado; solo administrador |
+| POST | `/api/v1/documents/cv` | Formulario `candidateId` y `file`, PDF hasta 15 MB |
+| POST | `/api/v1/disc/results` | Registrar puntajes DISC |
+| POST | `/api/v1/ingestion/evaluate` | Formulario de candidato, PDF y DISC; token autorizado o `X-Api-Key` |
+| GET | `/api/v1/reports/candidate/{candidateId}` | Consultar reporte |
+| POST | `/api/v1/reports/generate?candidateId=...` | Generar o recuperar reporte para sus fuentes actuales |
+| GET | `/api/v1/reports/download/{candidateId}` | Descargar PDF |
+| POST | `/api/v1/webhooks/process-cv` | Query: `candidateId`, `documentId`, `eventId`, `correlationId` |
+| POST | `/api/v1/webhooks/process-disc` | Query: `candidateId`, `discResultId`, `eventId`, `correlationId` |
+| POST | `/api/v1/webhooks/generate-report` | Query: `candidateId`, `eventId`, `correlationId` |
+| GET | `/health` | Comprobar conexión y esquema de candidatos; sin autenticación |
 
-## 3. Endpoints de la API REST
+Los webhooks aceptan un token autorizado o `X-Webhook-Secret`, configurado en `Webhooks__Secret`. No implementan firma HMAC. `eventId` debe ser único por proceso.
 
-### 3.1 Vacantes y Puestos Formales (`/api/v1/positions`)
-- **`GET /api/v1/positions`**: Lista todas las vacantes con calculo dinamico de candidatos postulados. (Autorizado: `ats_admin`, `ats_recruiter`).
-- **`POST /api/v1/positions`**: Crea una nueva vacante formal. (Restringido estrictamente a `ats_admin`).
-- **`PATCH /api/v1/positions/{id}/status`**: Modifica el estado de una vacante (Activa, Pausada, Cerrada). (Restringido a `ats_admin`).
+El candidato devuelve `matchScore=null` cuando no existe un cálculo de ajuste implementado y `experienceYears=null` hasta analizar su CV. `discScores` contiene los puntajes guardados. Las entradas inválidas devuelven ProblemDetails.
 
-### 3.2 Postulantes y Expedientes (`/api/v1/candidates`)
-- **`GET /api/v1/candidates`**: Consulta candidatos con soporte para busqueda por texto, filtrado por cargo y estado.
-- **`GET /api/v1/candidates/{id}`**: Obtiene el expediente completo con analisis de CV, perfil conductual DISC y preguntas STAR.
-- **`POST /api/v1/candidates/{id}/assign`**: Asigna o reasigna un evaluador responsable al candidato. (Restringido a `ats_admin`).
-- **`POST /api/v1/candidates/{id}/decision`**: Registra el dictamen oficial de la entrevista (Aprobado, En Reserva, Descartado) y notas de auditoria.
+## Verificación
 
-### 3.3 Ingesta y Evaluacion en Tiempo Real (`/api/v1/ingestion`)
-- **`POST /api/v1/ingestion/evaluate`**: Endpoint multipart/form-data para carga simultanea de CV en PDF, seleccion de vacante y captura de puntajes DISC. Ejecuta el pipeline completo de Gemini AI y retorna el expediente listo.
-
-### 3.4 Webhooks y Automatizacion (`/api/v1/webhooks`)
-- **`POST /api/v1/webhooks/cv-processed`**: Recibe resultados de procesamiento asincrono de CV desde n8n. Protegido con firma HMAC SHA-256 en encabezado `X-ATS-Signature`.
-- **`POST /api/v1/webhooks/disc-processed`**: Recibe interpretacion DISC asincrona. Validacion de firma con `CryptographicOperations.FixedTimeEquals`.
-
-### 3.5 Documentos y Salud (`/api/v1/documents`, `/health`)
-- **`GET /api/v1/documents/{id}/download`**: Descarga segura del archivo PDF original o reporte generado.
-- **`GET /health`**: Sondeo de disponibilidad del servicio para balanceadores de carga y healthchecks de Docker.
-
----
-
-## 4. Mitigaciones de Seguridad Implementadas
-
-1. **Defensa contra Prompt Injection (Cuatro Capas):**
-   - Sanitizacion heuristica con `CvSecuritySanitizer`.
-   - Confinamiento con `systemInstruction` y delimitacion XML `<untrusted_applicant_cv>`.
-   - Verificacion de citas textuales de competencias (*Grounding Check*).
-   - Human-in-the-loop: alertas de integridad curricular en frontend.
-
-2. **Defensa contra Path Traversal:**
-   - [`StorageService.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Infrastructure/Services/Storage/StorageService.cs) normaliza todas las rutas con `Path.GetFullPath()` y verifica que pertenezcan estrictamente al subdirectorio base de almacenamiento antes de realizar lecturas o escrituras.
-
-3. **Prevencion de Timing Attacks:**
-   - La validacion de firmas HMAC de webhooks utiliza comparacion en tiempo constante mediante `CryptographicOperations.FixedTimeEquals`.
-
-4. **Manejo Centralizado de Excepciones:**
-   - [`GlobalExceptionHandlerMiddleware.cs`](file:///c:/Users/jspaniagua/Documents/proyectos/ats/backend/src/Ats.Api/Middlewares/GlobalExceptionHandlerMiddleware.cs) estandariza los errores bajo RFC 7807 (ProblemDetails), evitando la exposicion de trazas de pila internas en entornos de produccion.
-
-5. **Proteccion de Credenciales:**
-   - Las claves maestras se leen mediante inyeccion de configuracion de ASP.NET Core desde variables de entorno (`Gemini__ApiKey`, `Webhooks__Secret`, `Ingestion__ApiKey`).
-
----
-
-## 5. Pruebas y Validacion
-
-Para ejecutar el conjunto de pruebas automatizadas:
-
-```bash
-# Ejecutar todas las pruebas unitarias
-dotnet test backend/tests/Ats.Tests/Ats.Tests.csproj
-
-# Ejecutar con reporte detallado
-dotnet test backend/tests/Ats.Tests/Ats.Tests.csproj --logger "console;verbosity=detailed"
+```powershell
+dotnet build Ats.slnx
+dotnet test Ats.slnx
 ```
 
+La solución incluye dominio, casos de uso, arquitectura, almacenamiento y configuración Gemini. Consulte [la revisión técnica](../docs/revision-tecnica.md) para resultados y limitaciones.

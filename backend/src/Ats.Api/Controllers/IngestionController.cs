@@ -38,7 +38,7 @@ public class IngestionController : ApiControllerBase
     }
 
     /// <summary>
-    /// Endpoint unificado de ingesta y evaluación para servicios externos y n8n.
+    /// Endpoint unificado de ingesta y evaluación para la web y servicios externos.
     /// Recibe los datos del postulante, su archivo CV en PDF y los puntajes DISC,
     /// y ejecuta todo el pipeline de análisis con Google Gemini AI.
     /// </summary>
@@ -72,46 +72,7 @@ public class IngestionController : ApiControllerBase
             });
         }
 
-        // 2. File size limit (15 MB)
-        if (request.File.Length > 15 * 1024 * 1024)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "File.TooLarge",
-                Detail = "El archivo excede el tamaño máximo permitido de 15 MB.",
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
-
-        if (!request.File.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "File.InvalidFormat",
-                Detail = "Solo se permiten archivos con extensión .pdf.",
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
-
         using var stream = request.File.OpenReadStream();
-
-        // 3. Magic bytes validation (%PDF- -> 0x25, 0x50, 0x44, 0x46)
-        byte[] magicHeader = new byte[4];
-        int bytesRead = await stream.ReadAsync(magicHeader, 0, 4, cancellationToken);
-        if (bytesRead < 4 || magicHeader[0] != 0x25 || magicHeader[1] != 0x50 || magicHeader[2] != 0x44 || magicHeader[3] != 0x46)
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "File.InvalidMagicBytes",
-                Detail = "El archivo suministrado no contiene una cabecera binaria válida de documento PDF (%PDF).",
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
-
-        if (stream.CanSeek)
-        {
-            stream.Seek(0, SeekOrigin.Begin);
-        }
 
         _logger.LogInformation(
             "Iniciando ingesta y evaluación con IA para candidato: {Email}, Puesto sugerido: {TargetRole}",

@@ -105,7 +105,7 @@ export const EvaluatorCandidateDashboard = ({
       })
       .sort((a, b) => {
         if (sortBy === 'match') {
-          return (b.matchScore || 0) - (a.matchScore || 0);
+          return (b.matchScore ?? -1) - (a.matchScore ?? -1);
         }
         return new Date(b.createdAtUtc).getTime() - new Date(a.createdAtUtc).getTime();
       });
@@ -387,7 +387,7 @@ export const EvaluatorCandidateDashboard = ({
 
                           {/* Match Score */}
                           <span className="text-[11px] sm:text-xs font-bold text-emerald-700 bg-emerald-50 px-2 sm:px-2.5 py-0.5 rounded-md flex-shrink-0 border border-emerald-200/60">
-                            {c.matchScore || 90}% match
+                            {c.matchScore == null ? 'Sin puntaje de ajuste' : `${c.matchScore}% match`}
                           </span>
                         </div>
 
@@ -395,7 +395,7 @@ export const EvaluatorCandidateDashboard = ({
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs sm:text-sm text-slate-500">
                           <span className="font-medium text-slate-700">{c.seniority}</span>
                           <span>·</span>
-                          <span>{c.experienceYears} años</span>
+                          <span>{c.experienceYears == null ? 'Experiencia sin evaluar' : `${c.experienceYears} años`}</span>
                           <span>·</span>
                           <span className="text-slate-400 truncate max-w-[180px] sm:max-w-[240px]">{c.email}</span>
 

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using FluentValidation;
+using Ats.Application.Common;
 using Ats.Application.Common.Interfaces;
 using Ats.Application.DTOs;
 using Ats.Domain.Common;
@@ -34,19 +35,25 @@ public class SubmitDiscResultCommandHandler
     private readonly ICandidateRepository _candidateRepository;
     private readonly IDiscRepository _discRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IValidator<SubmitDiscResultCommand> _validator;
 
     public SubmitDiscResultCommandHandler(
         ICandidateRepository candidateRepository,
         IDiscRepository discRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IValidator<SubmitDiscResultCommand> validator)
     {
         _candidateRepository = candidateRepository;
         _discRepository = discRepository;
         _unitOfWork = unitOfWork;
+        _validator = validator;
     }
 
     public async Task<Result<Guid>> HandleAsync(SubmitDiscResultCommand command, CancellationToken cancellationToken = default)
     {
+        var validationError = await _validator.ValidateCommandAsync(command, cancellationToken);
+        if (validationError is not null) return Result.Failure<Guid>(validationError);
+
         var candidate = await _candidateRepository.GetByIdAsync(command.CandidateId, cancellationToken);
         if (candidate is null)
         {
@@ -102,7 +109,7 @@ public class ProcessDiscInterpretationCommandHandler
     {
         // 1. Check if candidate already has a processed DISC interpretation (Cache / Token Guard)
         var existingInterpretation = await _discRepository.GetInterpretationByCandidateIdAsync(command.CandidateId, cancellationToken);
-        if (existingInterpretation is not null && existingInterpretation.Status == ProcessingStatus.Processed && !string.IsNullOrEmpty(existingInterpretation.InterpretationJson))
+        if (existingInterpretation is not null && existingInterpretation.DiscResultId == command.DiscResultId && existingInterpretation.Status == ProcessingStatus.Processed && !string.IsNullOrEmpty(existingInterpretation.InterpretationJson))
         {
             var cachedDto = JsonSerializer.Deserialize<DiscInterpretationDto>(existingInterpretation.InterpretationJson);
             if (cachedDto is not null) return Result.Success(cachedDto);
@@ -110,29 +117,17 @@ public class ProcessDiscInterpretationCommandHandler
 
         // 2. Idempotency check via ProcessingJob
         var existingJob = await _processingJobRepository.GetByEventIdAsync(command.EventId, cancellationToken);
-        if (existingJob is not null && existingJob.Status == ProcessingStatus.Processed)
-        {
-            if (existingInterpretation is not null && !string.IsNullOrEmpty(existingInterpretation.InterpretationJson))
-            {
-                var cachedDto = JsonSerializer.Deserialize<DiscInterpretationDto>(existingInterpretation.InterpretationJson);
-                if (cachedDto is not null) return Result.Success(cachedDto);
-            }
-        }
+        if (existingJob is not null && (existingJob.CandidateId != command.CandidateId || existingJob.ProcessType != ProcessType.DiscInterpretation))
+            return Result.Failure<DiscInterpretationDto>(Error.Conflict("Event.Mismatch", "El evento pertenece a otro proceso o candidato."));
+
+        var discResult = await _discRepository.GetResultByIdAsync(command.DiscResultId, cancellationToken);
+        if (discResult is null || discResult.CandidateId != command.CandidateId)
+            return Result.Failure<DiscInterpretationDto>(Error.NotFound("Disc.NotFound", "Resultado DISC no encontrado para este candidato."));
 
         var job = existingJob ?? ProcessingJob.Create(command.CandidateId, ProcessType.DiscInterpretation, command.EventId, command.CorrelationId);
         if (existingJob is null) await _processingJobRepository.AddAsync(job, cancellationToken);
-
         job.MarkAsProcessing();
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        // 2. Fetch DISC result
-        var discResult = await _discRepository.GetResultByCandidateIdAsync(command.CandidateId, cancellationToken);
-        if (discResult is null)
-        {
-            job.MarkAsFailed("Disc.NotFound", $"Resultado DISC del candidato {command.CandidateId} no encontrado.");
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return Result.Failure<DiscInterpretationDto>(Error.NotFound("Disc.NotFound", "Resultado DISC no encontrado."));
-        }
 
         // 3. Interpret with AI
         var interpretationResult = await _discInterpreter.InterpretDiscAsync(discResult.Scores, cancellationToken);
@@ -143,13 +138,13 @@ public class ProcessDiscInterpretationCommandHandler
             return Result.Failure<DiscInterpretationDto>(interpretationResult.Error);
         }
 
-        var discInterpretation = await _discRepository.GetInterpretationByCandidateIdAsync(command.CandidateId, cancellationToken)
-            ?? DiscInterpretation.CreatePending(command.CandidateId, command.DiscResultId, "GoogleGemini", "gemini-1.5-flash", "v1.0");
+        var discInterpretation = existingInterpretation?.DiscResultId == command.DiscResultId ? existingInterpretation
+            : DiscInterpretation.CreatePending(command.CandidateId, command.DiscResultId, "GoogleGemini", "configured-model", "v1.0");
 
         string jsonContent = JsonSerializer.Serialize(interpretationResult.Value);
         discInterpretation.MarkAsProcessed(jsonContent);
 
-        if (discInterpretation.Id == Guid.Empty || await _discRepository.GetInterpretationByCandidateIdAsync(command.CandidateId, cancellationToken) is null)
+        if (!ReferenceEquals(discInterpretation, existingInterpretation))
         {
             await _discRepository.AddInterpretationAsync(discInterpretation, cancellationToken);
         }

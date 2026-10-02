@@ -28,6 +28,7 @@ public interface ICvAnalysisRepository
 
 public interface IDiscRepository
 {
+    Task<DiscResult?> GetResultByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<DiscResult?> GetResultByCandidateIdAsync(Guid candidateId, CancellationToken cancellationToken = default);
     Task<DiscInterpretation?> GetInterpretationByCandidateIdAsync(Guid candidateId, CancellationToken cancellationToken = default);
     Task AddResultAsync(DiscResult discResult, CancellationToken cancellationToken = default);

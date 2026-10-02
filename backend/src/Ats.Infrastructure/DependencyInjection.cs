@@ -24,7 +24,9 @@ public static class DependencyInjection
 
         // 2. Repositories & UnitOfWork
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IDatabaseHealthProbe, DatabaseHealthProbe>();
         services.AddScoped<ICandidateRepository, CandidateRepository>();
+        services.AddScoped<ICandidateDetailsRepository, CandidateDetailsRepository>();
         services.AddScoped<ICvAnalysisRepository, CvAnalysisRepository>();
         services.AddScoped<IDiscRepository, DiscRepository>();
         services.AddScoped<IInterviewReportRepository, InterviewReportRepository>();

@@ -1,4 +1,5 @@
 using FluentValidation;
+using Ats.Application.Common;
 using Ats.Application.Common.Interfaces;
 using Ats.Application.DTOs;
 using Ats.Domain.Common;
@@ -27,7 +28,8 @@ public class RegisterCandidateCommandValidator : AbstractValidator<RegisterCandi
 
         RuleFor(x => x.Email)
             .NotEmpty().WithMessage("El correo electrónico es obligatorio.")
-            .EmailAddress().WithMessage("El formato de correo no es válido.");
+            .EmailAddress().WithMessage("El formato de correo no es válido.").MaximumLength(255);
+        RuleFor(x => x.PhoneNumber).MaximumLength(30);
     }
 }
 
@@ -35,15 +37,20 @@ public class RegisterCandidateCommandHandler
 {
     private readonly ICandidateRepository _candidateRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IValidator<RegisterCandidateCommand> _validator;
 
-    public RegisterCandidateCommandHandler(ICandidateRepository candidateRepository, IUnitOfWork unitOfWork)
+    public RegisterCandidateCommandHandler(ICandidateRepository candidateRepository, IUnitOfWork unitOfWork, IValidator<RegisterCandidateCommand> validator)
     {
         _candidateRepository = candidateRepository;
         _unitOfWork = unitOfWork;
+        _validator = validator;
     }
 
     public async Task<Result<CandidateDto>> HandleAsync(RegisterCandidateCommand command, CancellationToken cancellationToken = default)
     {
+        var validationError = await _validator.ValidateCommandAsync(command, cancellationToken);
+        if (validationError is not null) return Result.Failure<CandidateDto>(validationError);
+
         var emailResult = CandidateEmail.Create(command.Email);
         if (emailResult.IsFailure)
         {
@@ -78,189 +85,25 @@ public class RegisterCandidateCommandHandler
 
 public record GetCandidateByIdQuery(Guid Id);
 
-public class GetCandidateByIdQueryHandler
+public sealed class GetCandidateByIdQueryHandler(ICandidateDetailsRepository repository)
 {
-    private readonly ICandidateRepository _candidateRepository;
-    private readonly ICvAnalysisRepository _cvAnalysisRepository;
-    private readonly IDiscRepository _discRepository;
-    private readonly IInterviewReportRepository _reportRepository;
-
-    public GetCandidateByIdQueryHandler(
-        ICandidateRepository candidateRepository,
-        ICvAnalysisRepository cvAnalysisRepository,
-        IDiscRepository discRepository,
-        IInterviewReportRepository reportRepository)
-    {
-        _candidateRepository = candidateRepository;
-        _cvAnalysisRepository = cvAnalysisRepository;
-        _discRepository = discRepository;
-        _reportRepository = reportRepository;
-    }
-
     public async Task<Result<CandidateDto>> HandleAsync(GetCandidateByIdQuery query, CancellationToken cancellationToken = default)
     {
-        var candidate = await _candidateRepository.GetByIdAsync(query.Id, cancellationToken);
-        if (candidate is null)
-        {
-            return Result.Failure<CandidateDto>(Error.NotFound("Candidate.NotFound", $"No se encontró el candidato con ID {query.Id}."));
-        }
-
-        var cvAnalysis = await _cvAnalysisRepository.GetByCandidateIdAsync(candidate.Id, cancellationToken);
-        var discInterp = await _discRepository.GetInterpretationByCandidateIdAsync(candidate.Id, cancellationToken);
-        var discResult = await _discRepository.GetResultByCandidateIdAsync(candidate.Id, cancellationToken);
-        var report = await _reportRepository.GetByCandidateIdAsync(candidate.Id, cancellationToken);
-
-        CvAnalysisDto? cvDto = null;
-        if (cvAnalysis != null && !string.IsNullOrWhiteSpace(cvAnalysis.AnalysisJson) && cvAnalysis.AnalysisJson != "{}")
-        {
-            try { cvDto = System.Text.Json.JsonSerializer.Deserialize<CvAnalysisDto>(cvAnalysis.AnalysisJson); } catch { }
-        }
-
-        DiscInterpretationDto? discDto = null;
-        if (discInterp != null && !string.IsNullOrWhiteSpace(discInterp.InterpretationJson) && discInterp.InterpretationJson != "{}")
-        {
-            try { discDto = System.Text.Json.JsonSerializer.Deserialize<DiscInterpretationDto>(discInterp.InterpretationJson); } catch { }
-        }
-
-        InterviewReportDto? reportDto = null;
-        if (report != null && !string.IsNullOrWhiteSpace(report.ReportContentJson) && report.ReportContentJson != "{}")
-        {
-            try { reportDto = System.Text.Json.JsonSerializer.Deserialize<InterviewReportDto>(report.ReportContentJson); } catch { }
-        }
-
-        string targetRole = !string.IsNullOrWhiteSpace(candidate.TargetRole)
-            ? candidate.TargetRole
-            : (cvDto?.CurrentRole ?? "Senior Software Engineer");
-        string seniority = cvDto?.EstimatedSeniority ?? "Senior";
-        int expYears = (int)Math.Round(cvDto?.TotalExperienceYears ?? 5.0);
-        string primaryStyle = discResult?.Scores.PrimaryStyle ?? discDto?.PrimaryStyle ?? "D/C";
-        int matchScore = cvDto != null ? Math.Min(97, Math.Max(75, 76 + (expYears * 2) + (cvDto.Skills?.Count ?? 0))) : 88;
-        string status = report != null && report.Status == Domain.Enums.ReportStatus.Generated ? "ReportReady" :
-                        discInterp != null && discInterp.Status == Domain.Enums.ProcessingStatus.Processed ? "DiscEvaluated" :
-                        cvAnalysis != null && cvAnalysis.Status == Domain.Enums.ProcessingStatus.Processed ? "CvAnalyzed" : "Registered";
-
-        return Result.Success(new CandidateDto(
-            candidate.Id,
-            candidate.FirstName,
-            candidate.LastName,
-            candidate.Email.Value,
-            candidate.PhoneNumber,
-            candidate.CreatedAtUtc,
-            TargetRole: targetRole,
-            Seniority: seniority,
-            ExperienceYears: expYears,
-            MatchScore: matchScore,
-            PrimaryDiscStyle: primaryStyle,
-            Status: status,
-            EvaluatorDecision: candidate.EvaluatorDecision,
-            EvaluatorNotes: candidate.EvaluatorNotes,
-            EvaluatedAtUtc: candidate.EvaluatedAtUtc,
-            AssignedRecruiterId: candidate.AssignedRecruiterId,
-            AssignedRecruiterName: candidate.AssignedRecruiterName,
-            AssignedRecruiterEmail: candidate.AssignedRecruiterEmail,
-            AssignedAtUtc: candidate.AssignedAtUtc,
-            JobPositionId: candidate.JobPositionId,
-            CvAnalysis: cvDto,
-            DiscInterpretation: discDto,
-            Report: reportDto));
+        var details = await repository.GetByIdAsync(query.Id, cancellationToken);
+        return details is null
+            ? Result.Failure<CandidateDto>(Error.NotFound("Candidate.NotFound", $"No se encontró el candidato con ID {query.Id}."))
+            : Result.Success(CandidateDtoMapper.Map(details));
     }
 }
 
 public record GetCandidatesQuery(string? RecruiterId = null);
 
-public class GetCandidatesQueryHandler
+public sealed class GetCandidatesQueryHandler(ICandidateDetailsRepository repository)
 {
-    private readonly ICandidateRepository _candidateRepository;
-    private readonly ICvAnalysisRepository _cvAnalysisRepository;
-    private readonly IDiscRepository _discRepository;
-    private readonly IInterviewReportRepository _reportRepository;
-
-    public GetCandidatesQueryHandler(
-        ICandidateRepository candidateRepository,
-        ICvAnalysisRepository cvAnalysisRepository,
-        IDiscRepository discRepository,
-        IInterviewReportRepository reportRepository)
-    {
-        _candidateRepository = candidateRepository;
-        _cvAnalysisRepository = cvAnalysisRepository;
-        _discRepository = discRepository;
-        _reportRepository = reportRepository;
-    }
-
     public async Task<Result<IReadOnlyList<CandidateDto>>> HandleAsync(GetCandidatesQuery query, CancellationToken cancellationToken = default)
     {
-        var candidates = await _candidateRepository.GetAllAsync(cancellationToken);
-
-        if (!string.IsNullOrWhiteSpace(query.RecruiterId))
-        {
-            candidates = candidates.Where(c => c.AssignedRecruiterId == query.RecruiterId).ToList();
-        }
-
-        var dtos = new List<CandidateDto>();
-
-        foreach (var c in candidates)
-        {
-            var cvAnalysis = await _cvAnalysisRepository.GetByCandidateIdAsync(c.Id, cancellationToken);
-            var discInterp = await _discRepository.GetInterpretationByCandidateIdAsync(c.Id, cancellationToken);
-            var discResult = await _discRepository.GetResultByCandidateIdAsync(c.Id, cancellationToken);
-            var report = await _reportRepository.GetByCandidateIdAsync(c.Id, cancellationToken);
-
-            CvAnalysisDto? cvDto = null;
-            if (cvAnalysis != null && !string.IsNullOrWhiteSpace(cvAnalysis.AnalysisJson) && cvAnalysis.AnalysisJson != "{}")
-            {
-                try { cvDto = System.Text.Json.JsonSerializer.Deserialize<CvAnalysisDto>(cvAnalysis.AnalysisJson); } catch { }
-            }
-
-            DiscInterpretationDto? discDto = null;
-            if (discInterp != null && !string.IsNullOrWhiteSpace(discInterp.InterpretationJson) && discInterp.InterpretationJson != "{}")
-            {
-                try { discDto = System.Text.Json.JsonSerializer.Deserialize<DiscInterpretationDto>(discInterp.InterpretationJson); } catch { }
-            }
-
-            InterviewReportDto? reportDto = null;
-            if (report != null && !string.IsNullOrWhiteSpace(report.ReportContentJson) && report.ReportContentJson != "{}")
-            {
-                try { reportDto = System.Text.Json.JsonSerializer.Deserialize<InterviewReportDto>(report.ReportContentJson); } catch { }
-            }
-
-            string targetRole = !string.IsNullOrWhiteSpace(c.TargetRole)
-                ? c.TargetRole
-                : (cvDto?.CurrentRole ?? "Senior Software Engineer");
-            string seniority = cvDto?.EstimatedSeniority ?? "Senior";
-            int expYears = (int)Math.Round(cvDto?.TotalExperienceYears ?? 5.0);
-            string primaryStyle = discResult?.Scores.PrimaryStyle ?? discDto?.PrimaryStyle ?? "D/C";
-            int matchScore = cvDto != null ? Math.Min(97, Math.Max(75, 76 + (expYears * 2) + (cvDto.Skills?.Count ?? 0))) : 88;
-            string status = report != null && report.Status == Domain.Enums.ReportStatus.Generated ? "ReportReady" :
-                            discInterp != null && discInterp.Status == Domain.Enums.ProcessingStatus.Processed ? "DiscEvaluated" :
-                            cvAnalysis != null && cvAnalysis.Status == Domain.Enums.ProcessingStatus.Processed ? "CvAnalyzed" : "Registered";
-
-            dtos.Add(new CandidateDto(
-                c.Id,
-                c.FirstName,
-                c.LastName,
-                c.Email.Value,
-                c.PhoneNumber,
-                c.CreatedAtUtc,
-                TargetRole: targetRole,
-                Seniority: seniority,
-                ExperienceYears: expYears,
-                MatchScore: matchScore,
-                PrimaryDiscStyle: primaryStyle,
-                Status: status,
-                EvaluatorDecision: c.EvaluatorDecision,
-                EvaluatorNotes: c.EvaluatorNotes,
-                EvaluatedAtUtc: c.EvaluatedAtUtc,
-                AssignedRecruiterId: c.AssignedRecruiterId,
-                AssignedRecruiterName: c.AssignedRecruiterName,
-                AssignedRecruiterEmail: c.AssignedRecruiterEmail,
-                AssignedAtUtc: c.AssignedAtUtc,
-                JobPositionId: c.JobPositionId,
-                CvAnalysis: cvDto,
-                DiscInterpretation: discDto,
-                Report: reportDto));
-        }
-
-        return Result.Success<IReadOnlyList<CandidateDto>>(dtos);
+        var candidates = await repository.GetAllAsync(query.RecruiterId, cancellationToken);
+        return Result.Success<IReadOnlyList<CandidateDto>>(candidates.Select(CandidateDtoMapper.Map).ToList());
     }
 }
 
@@ -293,7 +136,8 @@ public class UpdateEvaluatorDecisionCommandHandler
             return Result.Failure<CandidateDto>(Error.NotFound("Candidate.NotFound", $"Candidato con ID {command.CandidateId} no encontrado."));
         }
 
-        candidate.SetEvaluatorDecision(command.Decision, command.Notes);
+        var decisionResult = candidate.SetEvaluatorDecision(command.Decision, command.Notes);
+        if (decisionResult.IsFailure) return Result.Failure<CandidateDto>(decisionResult.Error);
         _candidateRepository.Update(candidate);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -365,5 +209,4 @@ public class GetRecruitersQueryHandler
         return Result.Success<IReadOnlyList<RecruiterDto>>(recruiters);
     }
 }
-
 

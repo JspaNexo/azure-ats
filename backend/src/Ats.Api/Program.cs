@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Ats.Api.Middlewares;
+using Ats.Api.HealthChecks;
 using Ats.Application;
 using Ats.Infrastructure;
 using Ats.Infrastructure.Persistence;
@@ -21,7 +22,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 
 // 3.1. Keycloak JWT Bearer Authentication
 builder.Services.AddAuthentication(options =>
@@ -92,14 +93,15 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// 4. Auto-migration / ensure DB schema created on startup (Dev setup)
-using (var scope = app.Services.CreateScope())
+// SQL scripts initialize deployed databases. Schema creation is opt-in for local development.
+if (app.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Database:EnsureCreated"))
 {
+    using var scope = app.Services.CreateScope();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        db.Database.EnsureCreated();
+        await db.Database.EnsureCreatedAsync();
         logger.LogInformation("Esquema de base de datos verificado y listo.");
     }
     catch (Exception ex)
