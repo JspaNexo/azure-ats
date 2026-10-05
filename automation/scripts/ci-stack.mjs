@@ -4,6 +4,7 @@ import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sourceVersion } from './source-version.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const results = join(root, 'ci-results');
@@ -83,6 +84,7 @@ if (process.argv[2] === 'cleanup') {
   await compose(state, ['config', '--quiet']);
   await writeFile(statePath, JSON.stringify(state, null, 2));
   try {
+    const commit = await sourceVersion(root);
     await compose(state, ['build', 'backend', 'frontend']);
     await compose(state, ['up', '-d', 'postgres', 'keycloak']);
     const keycloakUrl = await serviceUrl(state, 'keycloak', 8080);
@@ -114,7 +116,7 @@ if (process.argv[2] === 'cleanup') {
     }
     await writeFile(join(results, 'summary.json'), JSON.stringify({
       status: 'passed',
-      sourceVersion: process.env.BUILD_SOURCEVERSION ?? null,
+      sourceVersion: commit,
       imageTag: state.imageTag,
       images: [`ats-ci-backend:${state.imageTag}`, `ats-ci-frontend:${state.imageTag}`],
       imageIds: images,

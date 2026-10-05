@@ -7,7 +7,7 @@ jobs:
     name: ATS - CI y despliegue al laboratorio
     parameters:
       env.ATS_IMAGE_TAG: 'tc-%teamcity.build.id%'
-      env.BUILD_SOURCEVERSION: '%system.build.vcs.number%'
+      # El commit se obtiene con Git durante la ejecucion, despues del checkout.
       env.ATS_SOURCE_BRANCH: '%teamcity.build.branch%'
       # Activar despues de configurar env.ATS_GHCR_TOKEN como Password en TeamCity.
       env.ATS_ENABLE_CD: 'false'

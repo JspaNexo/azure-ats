@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { activateRelease, applyRelease, docker, prepareRelease, readJson, shouldDeploy,
   validateSummary, verifyLab, writeJson } from './lab-release.mjs';
+import { sourceVersion } from './source-version.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const resultPath = join(root, 'ci-results/deployment.json');
@@ -45,7 +46,7 @@ async function main() {
     return;
   }
   const summary = JSON.parse(await readFile(join(root, 'ci-results/summary.json'), 'utf8'));
-  validateSummary(summary, env);
+  validateSummary(summary, { ...env, BUILD_SOURCEVERSION: await sourceVersion(root) });
   assert.ok(isAbsolute(env.ATS_LAB_DIR ?? ''), 'ATS_LAB_DIR must be an absolute persistent directory');
   const labDir = resolve(env.ATS_LAB_DIR);
   const fromCheckout = relative(root, labDir);

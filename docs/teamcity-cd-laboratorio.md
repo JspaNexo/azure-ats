@@ -49,6 +49,8 @@ En el editor visual de tu pipeline copia el YAML actualizado en **Settings → Y
 
 El agente debe seguir conectado y Docker Desktop debe estar iniciado con contenedores Linux. El usuario del agente necesita poder escribir en `ATS_LAB_DIR`, acceder a Docker y conectarse a GHCR. Los puertos 15173 y 18085 deben estar disponibles.
 
+El commit se obtiene con `git rev-parse --verify HEAD` después del checkout. No definas `env.BUILD_SOURCEVERSION` con `%system.build.vcs.number%` ni `%build.vcs.number%`: una referencia no disponible puede impedir que TeamCity asigne el job al agente. Si ese parámetro quedó guardado en el proyecto, pipeline o job, elimínalo de esa configuración. Git debe estar instalado y el checkout debe hacerse en el agente conservando `.git`.
+
 Haz commit y push de estos archivos y ejecuta el pipeline sobre `main`. En el primer intento puedes usar **Run** para ver el proceso completo sin esperar otro cambio. No se publica ni se despliega desde otras ramas aunque CD esté habilitado.
 
 ## 3. Entrar a la aplicación
