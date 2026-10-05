@@ -1,19 +1,20 @@
+# Build context: backend/ (docker build -f Dockerfile . from this folder).
 # Stage 1: Build & Publish with .NET 10 SDK
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy csproj files for optimized Docker layer caching
-COPY ["backend/src/Ats.Domain/Ats.Domain.csproj", "backend/src/Ats.Domain/"]
-COPY ["backend/src/Ats.Application/Ats.Application.csproj", "backend/src/Ats.Application/"]
-COPY ["backend/src/Ats.Infrastructure/Ats.Infrastructure.csproj", "backend/src/Ats.Infrastructure/"]
-COPY ["backend/src/Ats.Api/Ats.Api.csproj", "backend/src/Ats.Api/"]
+COPY ["src/Ats.Domain/Ats.Domain.csproj", "Ats.Domain/"]
+COPY ["src/Ats.Application/Ats.Application.csproj", "Ats.Application/"]
+COPY ["src/Ats.Infrastructure/Ats.Infrastructure.csproj", "Ats.Infrastructure/"]
+COPY ["src/Ats.Api/Ats.Api.csproj", "Ats.Api/"]
 
 # Restore NuGet dependencies
-RUN dotnet restore "backend/src/Ats.Api/Ats.Api.csproj"
+RUN dotnet restore "Ats.Api/Ats.Api.csproj"
 
 # Copy full source tree and publish
-COPY backend/src/ backend/src/
-WORKDIR "/src/backend/src/Ats.Api"
+COPY src/ ./
+WORKDIR "/src/Ats.Api"
 RUN dotnet publish "Ats.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # Stage 2: Runtime Image

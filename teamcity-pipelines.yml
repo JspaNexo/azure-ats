@@ -21,6 +21,10 @@ jobs:
           name: Agente Windows
           parameter: teamcity.agent.jvm.os.name
           value: Windows
+        - requirement: equals
+          name: Agente del laboratorio con Docker
+          parameter: teamcity.agent.name
+          value: My agent
     repositories:
       - main:
           enabled: true

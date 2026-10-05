@@ -40,8 +40,8 @@ services:
   # 3. Backend API (.NET 10 Clean Architecture)
   backend:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: ats_backend
     restart: unless-stopped
     ports:
@@ -73,8 +73,8 @@ services:
   # 4. Frontend Web Dashboard (React 19 + Vite + Nginx)
   frontend:
     build:
-      context: .
-      dockerfile: frontend/Dockerfile
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: ats_frontend
     restart: unless-stopped
     ports:

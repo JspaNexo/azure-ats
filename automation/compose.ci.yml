@@ -39,8 +39,8 @@ services:
   backend:
     image: ats-ci-backend:${ATS_IMAGE_TAG:-local}
     build:
-      context: ..
-      dockerfile: backend/Dockerfile
+      context: ../backend
+      dockerfile: Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
@@ -63,8 +63,8 @@ services:
   frontend:
     image: ats-ci-frontend:${ATS_IMAGE_TAG:-local}
     build:
-      context: ..
-      dockerfile: frontend/Dockerfile
+      context: ../frontend
+      dockerfile: Dockerfile
       args:
         VITE_KEYCLOAK_URL: ${ATS_PUBLIC_KEYCLOAK_URL:-http://localhost:8085}
     ports:

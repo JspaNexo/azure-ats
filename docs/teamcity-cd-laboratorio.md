@@ -49,19 +49,21 @@ En el editor visual de tu pipeline copia el YAML actualizado en **Settings → Y
 
 El agente debe seguir conectado y Docker Desktop debe estar iniciado con contenedores Linux. El usuario del agente necesita poder escribir en `ATS_LAB_DIR`, acceder a Docker y conectarse a GHCR. Los puertos 15173 y 18085 deben estar disponibles.
 
+El YAML selecciona explícitamente **My agent**, instalado en `C:/Users/jspaniagua/buildAgent`, para ejecutar y desplegar en la PC del laboratorio. Otro agente Windows puede no tener Docker en su PATH o desplegar en un destino diferente. Si cambias el nombre del agente, actualiza el requisito `teamcity.agent.name` en el YAML. Antes de ejecutar, confirma que **My agent** esté conectado, autorizado y habilitado en TeamCity.
+
 El commit se obtiene con `git rev-parse --verify HEAD` después del checkout. No definas `env.BUILD_SOURCEVERSION` con `%system.build.vcs.number%` ni `%build.vcs.number%`: una referencia no disponible puede impedir que TeamCity asigne el job al agente. Si ese parámetro quedó guardado en el proyecto, pipeline o job, elimínalo de esa configuración. Git debe estar instalado y el checkout debe hacerse en el agente conservando `.git`.
 
 Haz commit y push de estos archivos y ejecuta el pipeline sobre `main`. En el primer intento puedes usar **Run** para ver el proceso completo sin esperar otro cambio. No se publica ni se despliega desde otras ramas aunque CD esté habilitado.
 
 ## 3. Entrar a la aplicación
 
-### Si Docker informa que no encuentra `backend/src`
+### Contextos de construcción de Docker
 
-Si el log muestra `docker build -f Dockerfile .` ejecutándose dentro de `checkout/backend`, el contexto de construcción está mal configurado. Ambos Dockerfiles esperan la raíz del repositorio como contexto. El comando correcto desde la raíz es `docker build -f backend/Dockerfile .`; para el frontend es `docker build -f frontend/Dockerfile .`.
+Cada Dockerfile utiliza la carpeta de su servicio como contexto. Dentro de `backend` funciona `docker build -f Dockerfile .`, igual que el paso Docker de Build en TeamCity. Dentro de `frontend` funciona el mismo comando. Desde la raíz del repositorio utiliza `docker build -f backend/Dockerfile backend` y `docker build -f frontend/Dockerfile frontend`. Las instrucciones `COPY` son relativas a esas carpetas.
 
-El YAML de este repositorio construye las imágenes dentro del paso **Construir imagenes y probar integracion**, usando `automation/compose.ci.yml` con el contexto correcto. Si el editor visual contiene otros pasos Docker generados automáticamente, reemplaza su configuración con el contenido completo de `teamcity-pipelines.yml`. Guarda y vuelve a ejecutar. Los scripts nuevos también deben estar incluidos en el commit enviado al repositorio.
+El YAML de este repositorio construye las imágenes dentro del paso **Construir imagenes y probar integracion**, usando `automation/compose.ci.yml` con estos mismos contextos. `docker-compose.yml` también utiliza las carpetas de cada servicio. Los cambios de Dockerfiles y Compose deben estar incluidos en el commit enviado al repositorio para que Build los utilice.
 
-Si prefieres conservar un paso Docker independiente, configura su Dockerfile como `backend/Dockerfile`, su contexto como `.` y su directorio de trabajo como la raíz del checkout. Aplica la misma configuración al frontend cambiando el Dockerfile a `frontend/Dockerfile`.
+Para un paso Docker independiente con rutas relativas al checkout, configura el Dockerfile como `backend/Dockerfile` y el contexto como `backend`. Para el frontend, utiliza `frontend/Dockerfile` y el contexto `frontend`. Si el runner trabaja directamente dentro de la carpeta del servicio, puede usar `Dockerfile` y `.`.
 
 Después de un despliegue verificado:
 
