@@ -1,0 +1,79 @@
+# TeamCity Pipelines: CI on a self-hosted Windows agent.
+# Configure the main repository and automatic triggers in TeamCity's visual editor.
+# Prerequisites: .NET SDK 10, Node.js 22+, Git, Docker with Linux containers
+# and Docker Compose v2 or newer, accessible to the user running the agent.
+jobs:
+  AtsCi:
+    name: ATS - Compilacion, pruebas e integracion Docker
+    parameters:
+      env.ATS_IMAGE_TAG: 'tc-%teamcity.build.id%'
+      env.BUILD_SOURCEVERSION: '%system.build.vcs.number%'
+    runs-on:
+      self-hosted:
+        - requirement: starts-with
+          name: Agente Windows
+          parameter: teamcity.agent.jvm.os.name
+          value: Windows
+    repositories:
+      - main:
+          enabled: true
+          path: .
+    steps:
+      - type: script
+        name: Comprobar herramientas
+        script-content: |
+          dotnet --version
+          if errorlevel 1 exit /b 1
+          node --version
+          if errorlevel 1 exit /b 1
+          call npm.cmd --version
+          if errorlevel 1 exit /b 1
+
+      - type: script
+        name: Comprobar Docker y Compose
+        script-content: |
+          docker version
+          if errorlevel 1 exit /b 1
+          docker version --format "{{.Server.Os}}" | findstr /i /c:"linux"
+          if errorlevel 1 (
+            echo El agente necesita Docker iniciado con contenedores Linux.
+            exit /b 1
+          )
+          docker compose version
+
+      - type: script
+        name: Restaurar backend
+        script-content: dotnet restore Ats.slnx
+
+      - type: script
+        name: Compilar backend
+        script-content: dotnet build Ats.slnx --configuration Release --no-restore
+
+      - type: script
+        name: Ejecutar pruebas del backend
+        script-content: >-
+          dotnet test Ats.slnx --configuration Release --no-build --no-restore
+          --logger "console;verbosity=detailed" --logger trx
+          --results-directory "%teamcity.build.checkoutDir%/ci-results/backend"
+
+      - type: script
+        name: Instalar dependencias del frontend
+        working-directory: frontend
+        script-content: call npm.cmd ci
+
+      - type: script
+        name: Compilar frontend
+        working-directory: frontend
+        script-content: call npm.cmd run build
+
+      - type: script
+        name: Construir imagenes y probar integracion
+        script-content: node automation/scripts/ci-stack.mjs
+
+    files-publication:
+      - path: ci-results/**
+        share-with-jobs: false
+        publish-artifact: true
+      - path: frontend/dist/**
+        share-with-jobs: false
+        publish-artifact: true
