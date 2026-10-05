@@ -1,5 +1,7 @@
 # ATS TalentIQ - Sistema Integral de Evaluacion y Seleccion de Talento Asistido por IA
 
+CI/CD con TeamCity, imágenes en GHCR y despliegue en Docker Desktop: [guía del laboratorio Windows](docs/teamcity-cd-laboratorio.md).
+
 Estado verificado, correcciones de arquitectura y límites de la revisión: [revisión técnica](docs/revision-tecnica.md).
 
 Pipeline de Azure DevOps, pruebas de integración con Docker y publicación opcional de imágenes: [automatizaciones DevOps](docs/automatizaciones-devops.md).

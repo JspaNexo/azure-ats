@@ -10,7 +10,9 @@ El usuario que ejecuta el agente necesita acceso a .NET SDK 10, Node.js 22 o pos
 
 La integración se ejecuta después de la validación. Construye las imágenes `ats-ci-backend:tc-ID_BUILD` y `ats-ci-frontend:tc-ID_BUILD`, inicia PostgreSQL, Keycloak, API y Nginx temporales y ejecuta el flujo HTTP con IA simulada. El resumen registra el commit de TeamCity. El script elimina los contenedores, redes y volúmenes temporales al terminar, incluso si falla una comprobación; conserva las imágenes construidas. Si se cancela o se termina el proceso antes de su limpieza, desde el directorio de checkout del agente ejecute `node automation/scripts/ci-stack.mjs cleanup`.
 
-En **Artifacts** se publican los resultados TRX, el bundle del frontend y los archivos de `ci-results/`, incluido `summary.json`, `http.json` y, cuando falla la integración, `compose.log`. Este pipeline prepara y verifica las imágenes; su publicación en un registro y el despliegue requieren configuraciones adicionales.
+En **Artifacts** se publican los resultados TRX, el bundle del frontend y los archivos de `ci-results/`, incluido `summary.json`, `http.json` y, cuando falla la integración, `compose.log`.
+
+El flujo completo de publicación en GHCR, despliegue persistente en tu PC Windows y recuperación de la versión anterior está en [CI/CD para el laboratorio](../docs/teamcity-cd-laboratorio.md). El YAML incluye el paso de despliegue con `ATS_ENABLE_CD=false`: configura el token como Password en TeamCity y activa CD para utilizarlo. Las ramas diferentes de `main` conservan las comprobaciones de CI sin publicar ni desplegar.
 
 La web ejecuta el pipeline síncrono mediante `/api/v1/ingestion/evaluate`. Los casos de uso de Application coordinan el análisis del CV, la interpretación DISC y la generación del informe. Guardan datos entre etapas; una falla puede requerir un reintento.
 

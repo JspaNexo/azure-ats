@@ -1,14 +1,15 @@
-# Disposable integration environment. Do not use for deployment.
+# Persistent local laboratory. The CD script copies this file and its mounts
+# outside the agent checkout. Application images have already passed CI.
 services:
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ci-postgres-only
+      POSTGRES_PASSWORD: ${ATS_POSTGRES_PASSWORD:?Required}
       POSTGRES_DB: ats_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ../database/init:/docker-entrypoint-initdb.d:ro
+      - ./database/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d ats_db"]
       interval: 3s
@@ -20,40 +21,34 @@ services:
     command: start-dev --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ci-keycloak-only
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${ATS_KEYCLOAK_ADMIN_PASSWORD:?Required}
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak_db
       KC_DB_USERNAME: postgres
-      KC_DB_PASSWORD: ci-postgres-only
+      KC_DB_PASSWORD: ${ATS_POSTGRES_PASSWORD:?Required}
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
     ports:
-      - "127.0.0.1::8080"
+      - "127.0.0.1:18085:8080"
     volumes:
-      - ../keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
-      - ../keycloak/themes:/opt/keycloak/themes:ro
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ./keycloak/themes:/opt/keycloak/themes:ro
     depends_on:
       postgres:
         condition: service_healthy
 
   backend:
-    image: ats-ci-backend:${ATS_IMAGE_TAG:-local}
-    build:
-      context: ..
-      dockerfile: backend/Dockerfile
+    image: ${ATS_BACKEND_IMAGE:?Required}
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=ats_db;Username=postgres;Password=ci-postgres-only
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=ats_db;Username=postgres;Password=${ATS_POSTGRES_PASSWORD:?Required}
       Storage__BasePath: /app/Storage
       Gemini__ApiKey: ""
       Gemini__UseMockData: "true"
       Authentication__Authority: http://keycloak:8080/realms/ats-realm
-      Authentication__ValidIssuer: ${ATS_CI_ISSUER:-http://localhost:8080/realms/ats-realm}
+      Authentication__ValidIssuer: http://localhost:18085/realms/ats-realm
       Authentication__Audience: ats-backend
-      Serilog__MinimumLevel__Override__System.Net.Http.HttpClient: Warning
-    ports:
-      - "127.0.0.1::8080"
     volumes:
       - backend_storage:/app/Storage
     depends_on:
@@ -61,14 +56,9 @@ services:
         condition: service_healthy
 
   frontend:
-    image: ats-ci-frontend:${ATS_IMAGE_TAG:-local}
-    build:
-      context: ..
-      dockerfile: frontend/Dockerfile
-      args:
-        VITE_KEYCLOAK_URL: ${ATS_PUBLIC_KEYCLOAK_URL:-http://localhost:8085}
+    image: ${ATS_FRONTEND_IMAGE:?Required}
     ports:
-      - "127.0.0.1::80"
+      - "127.0.0.1:15173:80"
     depends_on:
       - backend
 

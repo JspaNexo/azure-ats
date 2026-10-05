@@ -8,6 +8,8 @@ RUN npm ci
 
 # Copy source code and build production bundle
 COPY frontend/ ./
+ARG VITE_KEYCLOAK_URL=http://localhost:8085
+ENV VITE_KEYCLOAK_URL=$VITE_KEYCLOAK_URL
 RUN npm run build
 
 # Stage 2: Serve with Nginx

@@ -108,11 +108,17 @@ if (process.argv[2] === 'cleanup') {
       ATS_SMOKE_RESULT_PATH: join(results, 'http.json'),
     });
     const smokeResult = JSON.parse(await readFile(join(results, 'http.json'), 'utf8'));
+    const images = {};
+    for (const service of ['backend', 'frontend']) {
+      images[service] = await run('docker', ['image', 'inspect', '--format', '{{.Id}}', `ats-ci-${service}:${state.imageTag}`], process.env, true);
+    }
     await writeFile(join(results, 'summary.json'), JSON.stringify({
       status: 'passed',
       sourceVersion: process.env.BUILD_SOURCEVERSION ?? null,
       imageTag: state.imageTag,
       images: [`ats-ci-backend:${state.imageTag}`, `ats-ci-frontend:${state.imageTag}`],
+      imageIds: images,
+      publicKeycloakUrl: process.env.ATS_PUBLIC_KEYCLOAK_URL ?? 'http://localhost:8085',
       apiRequests: smokeResult.apiRequests,
       completedAt: new Date().toISOString(),
     }, null, 2));

@@ -4,10 +4,17 @@
 # and Docker Compose v2 or newer, accessible to the user running the agent.
 jobs:
   AtsCi:
-    name: ATS - Compilacion, pruebas e integracion Docker
+    name: ATS - CI y despliegue al laboratorio
     parameters:
       env.ATS_IMAGE_TAG: 'tc-%teamcity.build.id%'
       env.BUILD_SOURCEVERSION: '%system.build.vcs.number%'
+      env.ATS_SOURCE_BRANCH: '%teamcity.build.branch%'
+      # Activar despues de configurar env.ATS_GHCR_TOKEN como Password en TeamCity.
+      env.ATS_ENABLE_CD: 'false'
+      env.ATS_GHCR_OWNER: 'jspanexo'
+      env.ATS_GHCR_USER: 'JspaNexo'
+      env.ATS_LAB_DIR: 'C:/Users/jspaniagua/ats-lab'
+      env.ATS_PUBLIC_KEYCLOAK_URL: 'http://localhost:18085'
     runs-on:
       self-hosted:
         - requirement: starts-with
@@ -67,8 +74,16 @@ jobs:
         script-content: call npm.cmd run build
 
       - type: script
+        name: Verificar publicacion y recuperacion del despliegue
+        script-content: node --test automation/tests/lab-release.test.mjs
+
+      - type: script
         name: Construir imagenes y probar integracion
         script-content: node automation/scripts/ci-stack.mjs
+
+      - type: script
+        name: Publicar en GHCR y desplegar laboratorio
+        script-content: node automation/scripts/cd-lab.mjs
 
     files-publication:
       - path: ci-results/**
