@@ -14,6 +14,20 @@ En **Artifacts** se publican los resultados TRX, el bundle del frontend y los ar
 
 El flujo completo de publicación en GHCR, despliegue persistente en tu PC Windows y recuperación de la versión anterior está en [CI/CD para el laboratorio](../docs/teamcity-cd-laboratorio.md). El YAML incluye el paso de despliegue con `ATS_ENABLE_CD=false`: configura el token como Password en TeamCity y activa CD para utilizarlo. Las ramas diferentes de `main` conservan las comprobaciones de CI sin publicar ni desplegar.
 
+### CI en una Build Configuration clásica
+
+Si utilizas la configuración clásica **Build**, sustituye el paso que ejecuta `docker-compose -f docker-compose.yml up -d --build` por un runner **Command Line → Custom script**, ejecutado directamente en **My agent**, con directorio de trabajo `%teamcity.build.checkoutDir%`:
+
+```bat
+set "ATS_IMAGE_TAG=tc-%teamcity.build.id%"
+set "ATS_PUBLIC_KEYCLOAK_URL=http://localhost:18085"
+node automation/scripts/ci-stack.mjs
+```
+
+Guarda el cambio en **Build → Edit Configuration Settings → Build Steps**. Si no permite cambiar el tipo del runner, agrega el paso Command Line y deshabilita el paso Docker Compose anterior. Puedes colocar la integración después de los pasos de compilación y pruebas .NET. Las referencias `%...%` de este ejemplo se resuelven dentro del campo Custom script de TeamCity.
+
+El Compose de desarrollo tiene nombres fijos, como `ats_seq`, y puertos fijos. Usarlo desde diferentes checkouts causa conflictos con los contenedores existentes, incluso si están detenidos. La integración usa `automation/compose.ci.yml`, un nombre de proyecto aleatorio, puertos dinámicos, datos temporales e IA simulada. El script ejecuta las comprobaciones HTTP y limpia únicamente su propio proyecto. No hace falta eliminar los contenedores ni los datos de desarrollo. Cambiar solamente el nombre del proyecto del Compose de desarrollo no resuelve sus nombres de contenedor fijos.
+
 La web ejecuta el pipeline síncrono mediante `/api/v1/ingestion/evaluate`. Los casos de uso de Application coordinan el análisis del CV, la interpretación DISC y la generación del informe. Guardan datos entre etapas; una falla puede requerir un reintento.
 
 ## Prueba HTTP de integración

@@ -14,6 +14,17 @@ commit + push a main
 
 Las ramas diferentes de `main` ejecutan CI pero omiten la publicación y el despliegue. Un fallo de compilación o pruebas detiene el flujo antes de publicar. `ATS_ENABLE_CD=false` permite seguir usando CI mientras configuras GHCR.
 
+## Centralizar la automatización en un solo pipeline
+
+1. Haz commit y push del YAML y de los scripts actualizados. Usa el pipeline con el job `AtsCi`, llamado **ATS - CI y despliegue al laboratorio**.
+2. En las opciones del repositorio principal del pipeline, selecciona **Configuration file storage → In repository** y el archivo `teamcity-pipelines.yml`. Guarda. TeamCity puede almacenar el YAML en Git; así las siguientes modificaciones se mantienen en el repositorio en lugar de conservar una copia independiente en el servidor. Los cambios guardados desde ese editor se pueden convertir en commits del repositorio.
+3. Confirma que el job utilice **My agent** y ejecuta **Run** con `main`. Debe mostrar 10 pasos y empezar con **Comprobar herramientas**. Mantén `ATS_ENABLE_CD=false` mientras verificas CI y configuras GHCR.
+4. Activa **Auto-Run Pipeline → On new changes** para `main`. Se accede a los ajustes generales activando **Settings** y haciendo clic en el fondo del lienzo, fuera del job. Comprueba también que la rama predeterminada del repositorio sea `main`.
+5. Cuando esa ejecución pase, abre la configuración clásica **project → Build → Edit Configuration Settings → Triggers** y deshabilita su **VCS Trigger**. Si tiene otros disparadores automáticos, deshabilítalos también para que el pipeline sea la única automatización activa. El historial de Build sigue disponible.
+6. Haz un nuevo commit y push, y comprueba que se ejecute automáticamente el pipeline de 10 pasos y que Build quede sin una ejecución nueva para ese cambio.
+
+Los disparadores y las opciones de almacenamiento viven fuera del YAML: subir el archivo por sí solo no configura esas opciones en TeamCity. Después de verificar esta centralización, configura el token de GHCR siguiendo las secciones siguientes y cambia `ATS_ENABLE_CD` a `true` para sumar la publicación y el despliegue al mismo flujo.
+
 ## 1. Preparar GitHub Container Registry (GHCR)
 
 Se utilizarán `ghcr.io/jspanexo/ats-backend:tc-ID` y `ghcr.io/jspanexo/ats-frontend:tc-ID`, tomando el propietario del repositorio `JspaNexo/azure-ats`. Si publicarás en otra cuenta, cambia `ATS_GHCR_OWNER` y `ATS_GHCR_USER` en el YAML.
@@ -64,6 +75,8 @@ Cada Dockerfile utiliza la carpeta de su servicio como contexto. Dentro de `back
 El YAML de este repositorio construye las imágenes dentro del paso **Construir imagenes y probar integracion**, usando `automation/compose.ci.yml` con estos mismos contextos. `docker-compose.yml` también utiliza las carpetas de cada servicio. Los cambios de Dockerfiles y Compose deben estar incluidos en el commit enviado al repositorio para que Build los utilice.
 
 Para un paso Docker independiente con rutas relativas al checkout, configura el Dockerfile como `backend/Dockerfile` y el contexto como `backend`. Para el frontend, utiliza `frontend/Dockerfile` y el contexto `frontend`. Si el runner trabaja directamente dentro de la carpeta del servicio, puede usar `Dockerfile` y `.`.
+
+Si una configuración clásica Build falla al levantar el Compose de desarrollo por un conflicto con `ats_seq`, sustituye ese paso por el script de integración siguiendo [CI en una Build Configuration clásica](../automation/README.md#ci-en-una-build-configuration-clásica). Esa integración crea y elimina su propio entorno temporal, sin levantar los servicios de desarrollo ni desplegar el laboratorio.
 
 Después de un despliegue verificado:
 
